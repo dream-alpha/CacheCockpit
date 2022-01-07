@@ -1,0 +1,14 @@
+#!/bin/sh
+rm /etc/enigma2/cachecockpit.db
+touch /etc/enigma2/.cachecockpit
+
+echo "***********************************"
+echo "*          CacheCockpit           *"
+echo "*               by                *"
+echo "*          dream-alpha            *"
+echo "***********************************"
+echo ""
+echo "CacheCockpit plugin installed successfully."
+echo "Please restart DreamOS now!"
+echo ""
+exit 0

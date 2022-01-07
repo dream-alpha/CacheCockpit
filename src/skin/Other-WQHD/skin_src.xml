@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<skin>
+	<layouts>
+		<xmlinc file="ColorButtonsLabels"/>
+		<xmlinc file="DateTime"/>
+		<xmlinc file="ColorButtons"/>
+	</layouts>
+	<xmlinc file="ConfigScreen"/>
+</skin>

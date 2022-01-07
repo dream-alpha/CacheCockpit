@@ -1,0 +1,17 @@
+#!/bin/sh
+if [ "$1" = "remove" ]; then
+	rm -rf /usr/lib/enigma2/python/Plugins/SystemPlugins/CacheCockpit > /dev/null 2>&1
+	if [ -f /etc/enigma2/cachecockpit.db ]; then
+		rm /etc/enigma2/cachecockpit.db > /dev/null 2>&1
+	fi
+	if [ -f /etc/enigma2/cachecockpit.db.bak ]; then
+		rm /etc/enigma2/cachecockpit.db.bak > /dev/null 2>&1
+	fi
+	if [ -f /etc/enigma2/.cachecockpit ]; then
+		rm /etc/enigma2/.cachecockpit > /dev/null 2>&1
+	fi
+	echo "CacheCockpit plugin removed successfully."
+else
+	find /usr/lib/enigma2/python/Plugins/SystemPlugins/CacheCockpit -type f -name "*.pyo" -exec rm -f {} \; > /dev/null 2>&1
+fi
+exit 0
