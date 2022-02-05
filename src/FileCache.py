@@ -22,6 +22,7 @@
 from Debug import logger
 import os
 import time
+from Components.config import config
 from FileCacheSQL import FileCacheSQL
 from datetime import datetime
 from ParserEitFile import ParserEitFile
@@ -32,8 +33,7 @@ from FileUtils import readFile, deleteFile
 from DelayTimer import DelayTimer
 from UnicodeUtils import convertToUtf8
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
-from Tools.BoundFunction import boundFunction
-from FileCacheUtils import SQL_DB_NAME, FILE_TYPE_FILE, FILE_TYPE_DIR
+from FileCacheUtils import SQL_DB_NAME, FILE_TYPE_FILE, FILE_IDX_TYPE, FILE_TYPE_DIR, FILE_IDX_DIR, FILE_IDX_PATH, FILE_IDX_FILENAME, FILE_IDX_SIZE
 
 
 instance = None
@@ -47,11 +47,12 @@ class FileCache(FileCacheSQL):
 		self.database_loaded_callback = None
 		self.database_changed_callback = None
 		FileCacheSQL.__init__(self)
+		self.epglang = config.plugins.moviecockpit.epglang.value
 		self.bookmarks = MountCockpit.getInstance().getMountedBookmarks("MVC")
 		if not os.path.exists(SQL_DB_NAME) or os.path.exists("/etc/enigma2/.cachecockpit"):
 			logger.info("loading database...")
 			deleteFile("/etc/enigma2/.cachecockpit")
-			MountCockpit.getInstance().onInitComplete(boundFunction(self.loadDatabase))
+			MountCockpit.getInstance().onInitComplete(self.loadDatabase)
 		else:
 			logger.info("database is already loaded.")
 			self.database_loaded = True
@@ -75,7 +76,7 @@ class FileCache(FileCacheSQL):
 			self.database_loaded_callback()
 
 	def onDatabaseChanged(self, callback=None):
-		logger.info("..")
+		logger.info("...")
 		self.database_changed_callback = callback
 
 	def onDatabaseChangedCallback(self):
@@ -84,79 +85,76 @@ class FileCache(FileCacheSQL):
 
 ### cache functions
 
-	def add(self, file_data):
-		self.sqlInsert(file_data)
+	def add(self, afile):
+		self.sqlInsert(afile)
 
 	### database row functions
 
 	def exists(self, path):
-		file_data = self.getFile(path)
-		logger.debug("path: %s, file_data: %s", path, str(file_data))
-		return file_data is not None
+		afile = self.getFile(path)
+		logger.debug("path: %s, afile: %s", path, str(afile))
+		return afile is not None
 
-	def delete(self, path, file_type=FILE_TYPE_FILE):
-		logger.debug("file_type: %s, path: %s", file_type, path)
+	def delete(self, path):
+		logger.debug("path: %s", path)
 		where = "path LIKE ?"
 		self.sqlDelete(where, [path + "%"])
 
 	def update(self, path, **kwargs):
 		logger.debug("%s, kwargs: %s", path, kwargs)
-		file_data = self.getFile(path)
-		if file_data:
-			self.directory, self.file_type, self.path, self.file_name, self.ext, self.name, self.event_start_time, self.recording_start_time, self.recording_stop_time, self.length, self.description, self.extended_description, self.service_reference, self.size, self.cuts, self.tags = file_data
+		afile = self.getFile(path)
+		if afile:
+			self.directory, self.file_type, self.path, self.file_name, self.ext, self.name, self.event_start_time, self.recording_start_time, self.recording_stop_time, self.length, self.description, self.extended_description, self.service_reference, self.size, self.cuts, self.tags = afile
 			logger.debug("kwargs.items(): %s", kwargs.items())
 			for key, value in kwargs.items():
 				logger.debug("key: %s, value: %s", key, value)
 				setattr(self, key, value)
 			self.add((self.directory, self.file_type, self.path, self.file_name, self.ext, self.name, self.event_start_time, self.recording_start_time, self.recording_stop_time, self.length, self.description, self.extended_description, self.service_reference, self.size, self.cuts, self.tags))
 
-	def copy(self, src_path, dst_dir, file_type=FILE_TYPE_FILE):
-		logger.debug("src_path: %s, dst_dir: %s, file_type: %s", src_path, dst_dir, file_type)
+	def copy(self, src_path, dst_dir):
+		logger.debug("src_path: %s, dst_dir: %s", src_path, dst_dir)
 		file_list = self.sqlSelect("path LIKE ?", [src_path + "%"])
-		for file_data in file_list:
-			_directory, file_type, path, file_name, ext, name, event_start_time, recording_start_time, recording_stop_time, length, description, extended_description, service_reference, size, cuts, tags = file_data
+		for afile in file_list:
+			path = afile[FILE_IDX_PATH]
 			dst_path = os.path.join(dst_dir, path[len(os.path.dirname(src_path)) + 1:])
+			dst_dir = os.path.dirname(dst_path)
 			dest_file = self.getFile(dst_path)
 			if dest_file is None:
-				self.add((os.path.dirname(dst_path), file_type, dst_path, file_name, ext, name, event_start_time, recording_start_time, recording_stop_time, length, description, extended_description, service_reference, size, cuts, tags))
+				dest_file = list(afile)
+				dest_file[FILE_IDX_DIR] = os.path.dirname(dst_path)
+				dest_file[FILE_IDX_PATH] = dst_path
+				self.add(dest_file)
 			else:
 				logger.error("file already exists at destination: %s", dst_path)
 
-	def move(self, src_path, dest_dir, file_type=FILE_TYPE_FILE):
-		logger.debug("src_path: %s, dest_dir: %s, file_type: %s", src_path, dest_dir, file_type)
+	def move(self, src_path, dest_dir):
+		logger.debug("src_path: %s, dest_dir: %s", src_path, dest_dir)
 		if os.path.dirname(src_path) != dest_dir:
-			self.copy(src_path, dest_dir, file_type)
-			self.delete(src_path, file_type)
+			self.copy(src_path, dest_dir)
+			self.delete(src_path)
 
 	def getFile(self, path):
 		logger.debug("path: %s", path)
 		file_list = self.sqlSelect("path = ?", [path])
-		file_data = None
+		afile = None
 		if file_list:
 			if len(file_list) == 1:
-				file_data = file_list[0]
+				afile = file_list[0]
 			else:
 				logger.error("not a single response: %s", str(file_list))
-		return file_data
+		return afile
 
 	def __resolveVirtualDirs(self, dirs):
 		logger.debug("dirs: %s", dirs)
 		self.bookmarks = MountCockpit.getInstance().getMountedBookmarks("MVC")
 		all_dirs = []
 		for adir in dirs:
-			if adir in self.bookmarks:
-				for bookmark in self.bookmarks:
-					if bookmark not in all_dirs:
-						all_dirs.append(bookmark)
-			elif os.path.basename(adir) == "trashcan":
-				for bookmark in self.bookmarks:
-					trashcan_dir = bookmark + "/trashcan"
-					if trashcan_dir not in all_dirs:
-						all_dirs.append(trashcan_dir)
-			else:
-				if adir not in all_dirs:
-					all_dirs.append(adir)
-
+			abookmark = MountCockpit.getInstance().getBookmark("MVC", adir)
+			movie_dir = adir[len(abookmark):]
+			for bookmark in self.bookmarks:
+				bdir = os.path.normpath(bookmark + movie_dir)
+				if bdir not in all_dirs:
+					all_dirs.append(bdir)
 		logger.debug("all_dirs: %s", all_dirs)
 		return all_dirs
 
@@ -173,27 +171,35 @@ class FileCache(FileCacheSQL):
 
 	def getDirList(self, dirs, include_all_dirs=True):
 		logger.debug("dirs: %s", dirs)
-		dir_list = []
+		all_dir_list = []
 		all_dirs = self.__resolveVirtualDirs(dirs) if include_all_dirs else dirs
 		if all_dirs:
 			binds = ",".join("?" * len(all_dirs))
 			where = "directory IN ({})".format(binds)
 			where += " AND file_name != 'trashcan'"
-			where += " AND file_name != '..'"
-			where += " AND file_type > %d" % FILE_TYPE_FILE
-			dir_list = self.sqlSelect(where, all_dirs)
+			where += " AND file_type = %d" % FILE_TYPE_DIR
+			all_dir_list = self.sqlSelect(where, all_dirs)
+
+		file_name_list = []
+		dir_list = []
+		for afile in all_dir_list:
+			file_name = afile[FILE_IDX_FILENAME]
+			if file_name not in file_name_list:
+				file_name_list.append(file_name)
+				dir_list.append(afile)
+		logger.debug("dir_list: %s", dir_list)
 		return dir_list
 
-	def getCountSize(self, apath):
+	def getCountSize(self, path):
 		total_count = total_size = 0
-		all_dirs = self.__resolveVirtualDirs([apath])
+		all_dirs = self.__resolveVirtualDirs([path])
 		for adir in all_dirs:
 			file_list = self.sqlSelect("path LIKE ? AND file_type = ?", [adir + "%", FILE_TYPE_FILE])
-			for _directory, file_type, path, _file_name, _ext, _name, _event_start_time, _recording_start_time, _recording_stop_time, _length, _description, _extended_description, _service_reference, size, _cuts, _tags in file_list:
-				logger.debug("path: %s, file_type: %s", path, file_type)
+			for afile in file_list:
+				logger.debug("apath: %s, afile_type: %s", afile[FILE_IDX_PATH], afile[FILE_IDX_TYPE])
 				total_count += 1
-				total_size += size
-		logger.debug("apath: %s, total_count: %s, total_size: %s", apath, total_count, total_size)
+				total_size += afile[FILE_IDX_SIZE]
+		logger.debug("path: %s, total_count: %s, total_size: %s", path, total_count, total_size)
 		return total_count, total_size
 
 	### database functions
@@ -219,8 +225,8 @@ class FileCache(FileCacheSQL):
 	def nextFileOp(self):
 		logger.debug("...")
 		if self.load_list:
-			path, file_type = self.load_list.pop(0)
-			self.loadDatabaseFile(path, file_type)
+			path = self.load_list.pop(0)
+			self.loadDatabaseFile(path)
 			DelayTimer(10, self.nextFileOp)
 		else:
 			logger.debug("done.")
@@ -229,17 +235,14 @@ class FileCache(FileCacheSQL):
 
 	### database load file/dir functions
 
-	def loadDatabaseFile(self, path, file_type=FILE_TYPE_FILE):
-		logger.debug("path: %s, file_type: %s", path, file_type)
-		if file_type == FILE_TYPE_FILE:
-			file_data = self.newFileData(path)
-			self.sqlInsert(file_data)
-		elif file_type == FILE_TYPE_DIR:
-			file_data = self.newDirData(path)
-			self.sqlInsert(file_data)
-			if path not in self.bookmarks:
-				file_data = self.newDirData(os.path.join(path, ".."))
-				self.sqlInsert(file_data)
+	def loadDatabaseFile(self, path):
+		logger.debug("path: %s", path)
+		if os.path.isfile(path):
+			afile = self.newFileData(path)
+			self.sqlInsert(afile)
+		elif os.path.isdir(path) or os.path.islink(path):
+			afile = self.newDirData(path)
+			self.sqlInsert(afile)
 		if self.database_loaded:
 			self.onDatabaseChangedCallback()
 
@@ -338,7 +341,7 @@ class FileCache(FileCacheSQL):
 			meta_name = meta["name"]
 			if meta_name:
 				name = meta_name
-			eit = ParserEitFile(path).getEit()
+			eit = ParserEitFile(path, self.epglang).getEit()
 			eit_name = eit["name"]
 			if eit_name:
 				name = eit_name
@@ -371,29 +374,28 @@ class FileCache(FileCacheSQL):
 	def __getDirLoadList(self, adir):
 		logger.debug("adir: %s", adir)
 		load_list = []
-		try:
+		if os.path.exists(adir):
 			walk_listdir = os.listdir(adir)
-		except Exception:
-			walk_listdir = []
-		for walk_name in walk_listdir:
-			path = os.path.join(adir, walk_name)
-			if os.path.islink(path):
-				path = os.path.realpath(path)
-			if os.path.isfile(path):
-				ext = os.path.splitext(path)[1]
-				if ext in EXT_VIDEO:
-					load_list.append((path, FILE_TYPE_FILE))
-			elif os.path.isdir(path):
-				load_list.append((path, FILE_TYPE_DIR))
-				load_list += self.__getDirLoadList(path)
+			for walk_name in walk_listdir:
+				path = os.path.join(adir, walk_name)
+				if os.path.isfile(path):
+					ext = os.path.splitext(path)[1]
+					if ext in EXT_VIDEO:
+						load_list.append(path)
+				elif os.path.isdir(path):
+					load_list.append(path)
+					load_list += self.__getDirLoadList(path)
+				elif os.path.islink(path):
+					path = os.path.realpath(path)
+					load_list.append(path)
+					load_list += self.__getDirLoadList(path)
+		else:
+			logger.error("adir does not exist: %s", adir)
 		return load_list
 
 	def getDirsLoadList(self, dirs):
 		logger.info("dirs: %s", dirs)
 		load_list = []
 		for adir in dirs:
-			if os.path.exists(adir):
-				load_list += self.__getDirLoadList(adir)
-			else:
-				logger.error("adir: %s", adir)
+			load_list += self.__getDirLoadList(adir)
 		return load_list

@@ -34,17 +34,16 @@ file_ops = {FILE_OP_DELETE: _("Deleting"), FILE_OP_MOVE: _("Moving"), FILE_OP_CO
 
 class FileOpManagerTask(Task, FileOp):
 
-	def __init__(self, job, file_op, path, target_dir, file_type, task_callback):
-		logger.info("file_op = %s, path = %s, target_dir = %s, file_type = %s", file_op, path, target_dir, file_type)
+	def __init__(self, job, file_op, path, target_dir, task_callback):
+		logger.info("file_op = %s, path = %s, target_dir = %s", file_op, path, target_dir)
 		Task.__init__(self, job, _("File task") + ": " + file_ops[file_op])
 		FileOp.__init__(self)
 		self.job = job
 		self.file_op = file_op
 		self.path = path
 		self.target_dir = target_dir
-		self.file_type = file_type
 		self.task_callback = task_callback
-		self.source_size = os.path.getsize(self.path)
+		self.source_size = 0
 		self.activity_timer = eTimer()
 		self.activity_timer_conn = self.activity_timer.timeout.connect(self.updateProgress)
 
@@ -53,7 +52,7 @@ class FileOpManagerTask(Task, FileOp):
 		if self.file_op in [FILE_OP_MOVE, FILE_OP_COPY]:
 			self.abortFileOp()
 			if os.path.exists(self.path):
-				self.execFileOp(FILE_OP_DELETE, os.path.join(self.target_dir, os.path.basename(self.path)), None, self.file_type, self.abortFileOpCallback)
+				self.execFileOp(FILE_OP_DELETE, os.path.join(self.target_dir, os.path.basename(self.path)), None, self.abortFileOpCallback)
 			else:
 				self.activity_timer.stop()
 				self.finish()
@@ -61,7 +60,7 @@ class FileOpManagerTask(Task, FileOp):
 			self.activity_timer.stop()
 			self.finish()
 
-	def abortFileOpCallback(self, _file_op, _path, _target_dir, _file_type, _error):
+	def abortFileOpCallback(self, _file_op, _path, _target_dir, _error):
 		logger.debug("file_op: %s, path: %s", _file_op, _path)
 		self.activity_timer.stop()
 		self.finish()
@@ -70,25 +69,32 @@ class FileOpManagerTask(Task, FileOp):
 		logger.debug("callback: %s", callback)
 		self.callback = callback
 		self.error = FILE_OP_ERROR_NONE
+		logger.debug("self.callback: %s", self.callback)
 		if self.file_op == FILE_OP_MOVE:
 			logger.debug("replace move by copy")
-			self.execFileOp(FILE_OP_COPY, self.path, self.target_dir, self.file_type, self.execFileOpCallback)
+			self.execFileOp(FILE_OP_COPY, self.path, self.target_dir, self.execFileOpCallback)
 		else:
-			self.execFileOp(self.file_op, self.path, self.target_dir, self.file_type, self.execFileOpCallback)
+			self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback)
+		self.source_size = os.path.getsize(self.path)
 		self.updateProgress()
 
-	def execFileOpCallback(self, _file_op, path, target_dir, file_type, error):
+	def execFileOpCallback(self, _file_op, path, target_dir, error):
 		logger.debug("file_op: %s, path: %s, target_dir: %s", _file_op, path, target_dir)
 		self.error = error
 		target_path = os.path.join(target_dir, os.path.basename(path))
 		if self.file_op == FILE_OP_MOVE and os.path.exists(target_path) and os.path.getsize(path) == os.path.getsize(target_path):
-			logger.debug("delete after copy instead of move")
-			self.execFileOp(FILE_OP_DELETE, path, None, file_type, self.execFileOpCallback2)
+			if os.path.realpath(path) != os.path.realpath(target_path):
+				logger.debug("delete after copy instead of move")
+				self.execFileOp(FILE_OP_DELETE, path, None, self.execFileOpCallback2)
+			else:
+				logger.error("trying to delete source file: %s, target_path: %s", path, target_path)
+				self.activity_timer.stop()
+				self.finish()
 		else:
 			self.activity_timer.stop()
 			self.finish()
 
-	def execFileOpCallback2(self, _file_op, _path, _target_dir, _file_type, _error):
+	def execFileOpCallback2(self, _file_op, _path, _target_dir, _error):
 		logger.debug("...")
 		self.activity_timer.stop()
 		self.finish()
@@ -109,4 +115,4 @@ class FileOpManagerTask(Task, FileOp):
 	def afterRun(self):
 		logger.debug("path: %s", self.path)
 		if self.task_callback:
-			self.task_callback(self.file_op, self.path, self.target_dir, self.file_type, self.error)
+			self.task_callback(self.file_op, self.path, self.target_dir, self.error)

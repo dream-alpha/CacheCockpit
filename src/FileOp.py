@@ -22,12 +22,12 @@
 from Debug import logger
 import os
 from pipes import quote
-from MovieCoverUtils import getCoverPath
+from MovieCoverUtils import getCoverPath, getCoverTargetDir
 from Shell import Shell
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
 from Plugins.SystemPlugins.MountCockpit.MountUtils import getBookmarkSpaceInfo
 from FileCache import FileCache
-from FileCacheUtils import FILE_TYPE_FILE, FILE_TYPE_DIR
+from Components.config import config
 
 
 FILE_OP_DELETE = 1
@@ -47,15 +47,15 @@ class FileOp(Shell):
 		logger.info("...")
 		self.abortShell()
 
-	def execFileOp(self, file_op, path, target_dir, file_type, exec_file_op_callback=None):
+	def execFileOp(self, file_op, path, target_dir, exec_file_op_callback=None):
 		self.exec_file_op_callback = exec_file_op_callback
 		error = FILE_OP_ERROR_NONE
 		cmds = []
 		callback = []
-		logger.info("file_op: %s, path: %s, target_dir: %s, file_type: %s", file_op, path, target_dir, file_type)
+		logger.info("file_op: %s, path: %s, target_dir: %s", file_op, path, target_dir)
 		if file_op == FILE_OP_DELETE:
-			cmds = self.__execFileDelete(path, file_type)
-			callback = [self.__deleteCallback, path, target_dir, file_type]
+			cmds = self.__execFileDelete(path)
+			callback = [self.__deleteCallback, path, target_dir]
 		elif file_op == FILE_OP_MOVE:
 			free = size = 0
 			if os.path.dirname(path) != target_dir and MountCockpit.getInstance().getMountPoint("MVC", path) != MountCockpit.getInstance().getMountPoint("MVC", target_dir):
@@ -63,8 +63,8 @@ class FileOp(Shell):
 				_count, size = FileCache.getInstance().getCountSize(path)
 			logger.debug("FILE_OP_MOVE: size: %s, free: %s", size, free)
 			if free * 0.8 >= size:
-				callback = [self.__moveCallback, path, target_dir, file_type]
-				cmds = self.__execFileMove(path, target_dir, file_type)
+				callback = [self.__moveCallback, path, target_dir]
+				cmds = self.__execFileMove(path, target_dir)
 			else:
 				logger.info("FILE_OP_MOVE: not enough space left: size: %s, free: %s", size, free)
 				error = FILE_OP_ERROR_NO_DISKSPACE
@@ -75,8 +75,8 @@ class FileOp(Shell):
 				_count, size = FileCache.getInstance().getCountSize(path)
 			logger.debug("FILE_OP_COPY: size: %s, free: %s", size, free)
 			if free * 0.8 >= size:
-				callback = [self.__copyCallback, path, target_dir, file_type]
-				cmds = self.__execFileCopy(path, target_dir, file_type)
+				callback = [self.__copyCallback, path, target_dir]
+				cmds = self.__execFileCopy(path, target_dir)
 			else:
 				logger.info("FILE_OP_MOVE: not enough space left: size: %s, free: %s", size, free)
 				error = FILE_OP_ERROR_NO_DISKSPACE
@@ -96,102 +96,106 @@ class FileOp(Shell):
 					function(*args)
 		else:
 			if self.exec_file_op_callback:
-				self.exec_file_op_callback(file_op, path, target_dir, file_type, error)
+				self.exec_file_op_callback(file_op, path, target_dir, error)
 
-	def __deleteCallback(self, path, target_dir, file_type):
-		logger.info("path: %s, target_dir: %s, file_type: %s", path, target_dir, file_type)
-		FileCache.getInstance().delete(path, file_type)
+	def __deleteCallback(self, path, target_dir):
+		logger.info("path: %s, target_dir: %s", path, target_dir)
+		FileCache.getInstance().delete(path)
 		if self.exec_file_op_callback:
-			self.exec_file_op_callback(FILE_OP_DELETE, path, target_dir, file_type, FILE_OP_ERROR_NONE)
+			self.exec_file_op_callback(FILE_OP_DELETE, path, target_dir, FILE_OP_ERROR_NONE)
 
-	def __moveCallback(self, path, target_dir, file_type):
-		logger.info("path: %s, target_dir: %s, file_type: %s", path, target_dir, file_type)
-		FileCache.getInstance().move(path, target_dir, file_type)
-		if os.path.basename(target_dir) == "trashcan" and not FileCache.getInstance().exists(target_dir):
-			FileCache.getInstance().loadDatabaseFile(target_dir, FILE_TYPE_DIR)
+	def __moveCallback(self, path, target_dir):
+		logger.info("path: %s, target_dir: %s", path, target_dir)
+		FileCache.getInstance().move(path, target_dir)
+		if "trashcan" in target_dir and not FileCache.getInstance().exists(target_dir):
+			FileCache.getInstance().loadDatabaseFile(target_dir)
 		if self.exec_file_op_callback:
-			self.exec_file_op_callback(FILE_OP_MOVE, path, target_dir, file_type, FILE_OP_ERROR_NONE)
+			self.exec_file_op_callback(FILE_OP_MOVE, path, target_dir, FILE_OP_ERROR_NONE)
 
-	def __copyCallback(self, path, target_dir, file_type):
-		logger.info("path: %s, target_dir: %s, file_type: %s", path, target_dir, file_type)
-		FileCache.getInstance().copy(path, target_dir, file_type)
+	def __copyCallback(self, path, target_dir):
+		logger.info("path: %s, target_dir: %s", path, target_dir)
+		FileCache.getInstance().copy(path, target_dir)
 		if self.exec_file_op_callback:
-			self.exec_file_op_callback(FILE_OP_COPY, path, target_dir, file_type, FILE_OP_ERROR_NONE)
+			self.exec_file_op_callback(FILE_OP_COPY, path, target_dir, FILE_OP_ERROR_NONE)
 
-	def __execFileDelete(self, path, file_type):
-		logger.info("path: %s, file_type: %s", path, file_type)
+	def __execFileDelete(self, path):
+		logger.info("path: %s", path)
 		cmds = []
-		if file_type == FILE_TYPE_FILE:
+		if os.path.isfile(path):
 			cover_path, backdrop_path, info_path = getCoverPath(path)
 			cmds.append("rm -f " + quote(cover_path))
 			cmds.append("rm -f " + quote(backdrop_path))
 			cmds.append("rm -f " + quote(info_path))
 			path = os.path.splitext(path)[0]
 			cmds.append("rm -f " + quote(path) + ".*")
-		elif file_type == FILE_TYPE_DIR:
+		elif os.path.isdir(path):
 			cmds.append("rm -rf " + quote(path))
+			cover_target_dir, _backdrop_target_dir, _info_target_dir = getCoverTargetDir(path)
+			cmds.append("rm -rf " + quote(cover_target_dir))
+		elif os.path.islink(path):
+			cmds.append("rm -f " + quote(path))
+			cover_target_dir, _backdrop_target_dir, _info_target_dir = getCoverTargetDir(path)
+			cmds.append("rm -f " + quote(cover_target_dir))
 		logger.debug("cmds: %s", cmds)
 		return cmds
 
-	def __execFileMove(self, path, target_dir, file_type):
-		logger.info("path: %s, target_dir: %s, file_type: %s", path, target_dir, file_type)
+	def __execFileMove(self, path, target_dir):
+		logger.info("path: %s, target_dir: %s", path, target_dir)
 		cmds = self.__changeFileOwner(path, target_dir)
-		if file_type == FILE_TYPE_FILE:
-			cover_path, backdrop_path, info_path = getCoverPath(path)
-			cover_target_path, backdrop_target_path, info_target_path = getCoverPath(target_dir)
-			cover_target_dir = os.path.splitext(cover_target_path)[0]
-			backdrop_target_dir = os.path.splitext(backdrop_target_path)[0]
-			info_target_dir = os.path.splitext(info_target_path)[0]
-
-			logger.debug("cover_path: %s, cover_target_dir: %s", cover_path, cover_target_dir)
-			logger.debug("backdrop_path: %s, backdrop_target_dir: %s", backdrop_path, backdrop_target_dir)
-			logger.debug("info_path: %s, info_target_dir: %s", info_path, info_target_dir)
-
-			for adir in [target_dir, cover_target_dir, backdrop_target_dir, info_target_dir]:
-				if os.path.basename(adir) == "trashcan" and not os.path.isdir(adir):
-					cmds.append("mkdir -p " + quote(adir))
-
-			cmds.append("mv " + quote(cover_path) + " " + quote(cover_target_dir))
-			cmds.append("mv " + quote(backdrop_path) + " " + quote(backdrop_target_dir))
-			cmds.append("mv " + quote(info_path) + " " + quote(info_target_dir))
-
+		if os.path.isfile(path):
+			cmds += self.__execCoverOp("mv", path, target_dir)
 			path = os.path.splitext(path)[0]
-			if os.path.basename(target_dir) == "trashcan":
+			if "trashcan" in target_dir:
 				cmds.append("touch " + quote(path) + ".*")
 			cmds.append("mv " + quote(path) + ".*" + " " + quote(target_dir))
-		elif file_type == FILE_TYPE_DIR:
-			if os.path.basename(target_dir) == "trashcan":
+		elif os.path.isdir(path) or os.path.islink(path):
+			if "trashcan" in target_dir:
 				cmds.append("touch " + quote(path))
 			cmds.append("mv " + quote(path) + " " + quote(target_dir))
 		logger.debug("cmds: %s", cmds)
 		return cmds
 
-	def __execFileCopy(self, path, target_dir, file_type):
-		logger.info("path: %s, target_dir: %s, file_type: %s", path, target_dir, file_type)
+	def __execFileCopy(self, path, target_dir):
+		logger.info("path: %s, target_dir: %s", path, target_dir)
 		cmds = self.__changeFileOwner(path, target_dir)
-		if file_type == FILE_TYPE_FILE:
-			cover_path, backdrop_path, info_path = getCoverPath(path)
-			cover_target_path, backdrop_target_path, info_target_path = getCoverPath(target_dir)
-			cover_target_dir = os.path.splitext(cover_target_path)[0]
-			backdrop_target_dir = os.path.splitext(backdrop_target_path)[0]
-			info_target_dir = os.path.splitext(info_target_path)[0]
-
-			logger.debug("cover_path: %s, cover_target_dir: %s", cover_path, cover_target_dir)
-			logger.debug("backdrop_path: %s, backdrop_target_dir: %s", backdrop_path, backdrop_target_dir)
-			logger.debug("info_path: %s, info_target_dir: %s", info_path, info_target_dir)
-
-			for adir in [target_dir, cover_target_dir, backdrop_target_dir, info_target_dir]:
-				if os.path.basename(adir) == "trashcan" and not os.path.isdir(adir):
-					cmds.append("mkdir -p " + quote(adir))
-
-			cmds.append("cp " + quote(cover_path) + " " + quote(cover_target_dir))
-			cmds.append("cp " + quote(backdrop_path) + " " + quote(backdrop_target_dir))
-			cmds.append("cp " + quote(info_path) + " " + quote(info_target_dir))
-
+		if os.path.isfile(path):
+			cmds += self.__execCoverOp("cp", path, target_dir)
 			path = os.path.splitext(path)[0]
 			cmds.append("cp " + quote(path) + ".* " + quote(target_dir))
-		elif file_type == FILE_TYPE_DIR:
-			cmds.append("cp -ar " + quote(path) + " " + quote(target_dir))
+		elif os.path.isdir(path) or os.path.islink(path):
+			cmds.append("cp -a " + quote(path) + " " + quote(target_dir))
+		logger.debug("cmds: %s", cmds)
+		return cmds
+
+	def __execCoverOp(self, op, path, target_dir):
+		logger.info("op: %s, path: %s, target_dir: %s", op, path, target_dir)
+		cmds = []
+		cover_path, backdrop_path, info_path = getCoverPath(path)
+		cover_target_dir, backdrop_target_dir, info_target_dir = getCoverTargetDir(target_dir)
+
+		logger.debug("cover_path: %s, cover_target_dir: %s", cover_path, cover_target_dir)
+		logger.debug("backdrop_path: %s, backdrop_target_dir: %s", backdrop_path, backdrop_target_dir)
+		logger.debug("info_path: %s, info_target_dir: %s", info_path, info_target_dir)
+
+		for adir in [target_dir, cover_target_dir, backdrop_target_dir, info_target_dir]:
+			if not os.path.isdir(adir):
+				cmds.append("mkdir -p " + quote(adir))
+
+		if "trashcan" in target_dir:
+			trashcan_dir = target_dir
+			if config.plugins.moviecockpit.cover_flash.value:
+				bookmark = MountCockpit.getInstance().getBookmark("MVC", target_dir)
+				trashcan_dir = os.path.normpath(config.plugins.moviecockpit.cover_bookmark.value + "/" + bookmark + "/trashcan")
+			if not os.path.isdir(trashcan_dir):
+				cmds.append("mkdir -p " + quote(trashcan_dir))
+			cover_target_dir = trashcan_dir
+			backdrop_target_dir = trashcan_dir
+			info_target_dir = trashcan_dir
+
+		cmds.append(op + " " + quote(cover_path) + " " + quote(cover_target_dir))
+		cmds.append(op + " " + quote(backdrop_path) + " " + quote(backdrop_target_dir))
+		cmds.append(op + " " + quote(info_path) + " " + quote(info_target_dir))
+
 		logger.debug("cmds: %s", cmds)
 		return cmds
 

@@ -3,7 +3,7 @@ msgstr ""
 "#-#-#-#-#  de.po  #-#-#-#-#\n"
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-04 15:46+0100\n"
+"POT-Creation-Date: 2022-02-02 15:52+0100\n"
 "PO-Revision-Date: \n"
 "Last-Translator: dream-alpha\n"
 "Language-Team: \n"
@@ -14,15 +14,19 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Poedit 3.0.1\n"
+"X-Poedit-Basepath: ../src\n"
+"X-Generator: Poedit 3.0.1\n"
 "X-Loco-Source-Locale: en-US\n"
 "X-Loco-Project-Id: 47158\n"
 "X-Loco-Api-Version: 1.0.19 20180501-1\n"
 "X-Poedit-Basepath: ../src\n"
 "X-Generator: Poedit 2.3\n"
 "X-Poedit-SearchPath-0: .\n"
-"#-#-#-#-#  de.po (Common)  #-#-#-#-#\n"
-"Project-Id-Version: Common\n"
-"POT-Creation-Date: 2021-12-21 14:18+0100\n"
+"X-Poedit-SearchPath-1: skin\n"
+"#-#-#-#-#  de.po  #-#-#-#-#\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-02-02 16:24+0100\n"
 "PO-Revision-Date: \n"
 "Last-Translator: dream-alpha\n"
 "Language-Team: \n"
@@ -30,44 +34,34 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Poedit 3.0.1\n"
+"X-Loco-Source-Locale: en-US\n"
+"X-Loco-Project-Id: 47158\n"
+"X-Loco-Api-Version: 1.0.19 20180501-1\n"
+"X-Poedit-Basepath: ../src\n"
+"X-Generator: Poedit 2.3\n"
+"X-Generator: Poedit 3.0.1\n"
+"X-Loco-Source-Locale: en-US\n"
+"X-Loco-Project-Id: 47158\n"
+"X-Loco-Api-Version: 1.0.19 20180501-1\n"
+"X-Poedit-Basepath: ../src\n"
+"X-Generator: Poedit 2.3\n"
 "X-Generator: Poedit 3.0.1\n"
 "X-Poedit-Basepath: ../src\n"
+"X-Generator: Poedit 3.0.1\n"
+"X-Loco-Source-Locale: en-US\n"
+"X-Loco-Project-Id: 47158\n"
+"X-Loco-Api-Version: 1.0.19 20180501-1\n"
+"X-Poedit-Basepath: ../src\n"
+"X-Generator: Poedit 2.3\n"
 "X-Poedit-SearchPath-0: .\n"
-
-msgid "Deleting"
-msgstr ""
-
-msgid "Moving"
-msgstr ""
-
-msgid "Copying"
-msgstr ""
-
-msgid "File task"
-msgstr ""
-
-msgid "Really reboot into Recovery Mode?\n"
-msgstr ""
-
-msgid "Really shutdown now?"
-msgstr ""
-
-msgid "Really reboot now?"
-msgstr ""
-
-msgid ""
-"You won't be able to leave Recovery Mode without physical access to the "
-"device!"
-msgstr ""
-
-msgid "Really restart now?"
-msgstr ""
-
-msgid "jobs are running in the background!"
-msgstr ""
-
-msgid "Recording(s) are in progress or coming up in few seconds!"
-msgstr ""
+"X-Poedit-SearchPath-1: skin\n"
 
 msgid "Plugin"
 msgstr ""
@@ -157,4 +151,222 @@ msgid "Do you want to resume playback at position: %d:%02d:%02d?"
 msgstr ""
 
 msgid "min"
+msgstr ""
+
+msgid "No override"
+msgstr ""
+
+msgid "Video-button"
+msgstr ""
+
+msgid "TV-button"
+msgstr ""
+
+msgid "Radio-button"
+msgstr ""
+
+msgid "Quick-button"
+msgstr ""
+
+msgid "Timeshift-button"
+msgstr ""
+
+msgid "DD.MM.YYYY"
+msgstr ""
+
+msgid "WD DD.MM.YYYY"
+msgstr ""
+
+msgid "DD.MM.YYYY HH:MM"
+msgstr ""
+
+msgid "WD DD.MM.YYYY HH:MM"
+msgstr ""
+
+msgid "DD.MM. HH:MM"
+msgstr ""
+
+msgid "WD DD.MM. HH:MM"
+msgstr ""
+
+msgid "YYYY/MM/DD"
+msgstr ""
+
+msgid "WD YYYY/MM/DD"
+msgstr ""
+
+msgid "YYYY/MM/DD HH:MM"
+msgstr ""
+
+msgid "WD YYYY/MM/DD HH:MM"
+msgstr ""
+
+msgid "MM/DD HH:MM"
+msgstr ""
+
+msgid "WD MM/DD HH:MM"
+msgstr ""
+
+msgid "off"
+msgstr ""
+
+msgid "Description"
+msgstr ""
+
+msgid "(#)"
+msgstr ""
+
+msgid "(#/GB)"
+msgstr ""
+
+msgid "(GB)"
+msgstr ""
+
+msgid "Home/End"
+msgstr ""
+
+msgid "Skip"
+msgstr ""
+
+msgid "Date sort down"
+msgstr ""
+
+msgid "Date sort up"
+msgstr ""
+
+msgid "Alpha sort up"
+msgstr ""
+
+msgid "Alpha sort down"
+msgstr ""
+
+msgid "red"
+msgstr ""
+
+msgid "light red"
+msgstr ""
+
+msgid "dark red"
+msgstr ""
+
+msgid "white"
+msgstr ""
+
+msgid "light grey"
+msgstr ""
+
+msgid "grey"
+msgstr ""
+
+msgid "dark grey"
+msgstr ""
+
+msgid "black"
+msgstr ""
+
+msgid "dark yellow"
+msgstr ""
+
+msgid "yellow"
+msgstr ""
+
+msgid "default"
+msgstr ""
+
+msgid "minitv"
+msgstr ""
+
+msgid "cover"
+msgstr ""
+
+msgid "horizontal"
+msgstr ""
+
+msgid "vertical"
+msgstr ""
+
+msgid "beginning"
+msgstr ""
+
+msgid "first mark"
+msgstr ""
+
+msgid "event start"
+msgstr ""
+
+msgid "ARCHIVE"
+msgstr ""
+
+msgid "Enable"
+msgstr ""
+
+msgid "Select whether archiving should be activated."
+msgstr ""
+
+msgid "Source"
+msgstr ""
+
+msgid "Select the source bookmark for archiving."
+msgstr ""
+
+msgid "Target"
+msgstr ""
+
+msgid "Select the target bookmark for archiving."
+msgstr ""
+
+msgid "DEBUG"
+msgstr ""
+
+msgid "Log level"
+msgstr ""
+
+msgid "Select debug log level."
+msgstr ""
+
+msgid "Log file path"
+msgstr ""
+
+msgid "Select the path to be used for the debug log file."
+msgstr ""
+
+msgid "Deleting"
+msgstr ""
+
+msgid "Moving"
+msgstr ""
+
+msgid "Copying"
+msgstr ""
+
+msgid "File task"
+msgstr ""
+
+msgid ""
+"You won't be able to leave Recovery Mode without physical access to the "
+"device!"
+msgstr ""
+
+msgid "Really shutdown now?"
+msgstr ""
+
+msgid "Really reboot now?"
+msgstr ""
+
+msgid "Really reboot into Recovery Mode?"
+msgstr ""
+
+msgid "Really restart now?"
+msgstr ""
+
+msgid "File operation"
+msgstr ""
+
+msgid "jobs are running in the background!"
+msgstr ""
+
+msgid "Recording(s) are in progress or starting soon!"
+msgstr ""
+
+msgid "Open setup"
 msgstr ""

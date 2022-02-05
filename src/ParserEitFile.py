@@ -25,7 +25,6 @@ from Debug import logger
 import os
 import struct
 import re
-from Components.config import config
 from Tools.ISO639 import LanguageCodes
 from FileUtils import readFile
 import datetime
@@ -35,7 +34,8 @@ from UnicodeUtils import convertToUtf8
 
 class ParserEitFile():
 
-	def __init__(self, path):
+	def __init__(self, path, epglang):
+		self.epglang = epglang
 		self.eit = {
 			"start": 0,
 			"length": 0,
@@ -239,10 +239,8 @@ class ParserEitFile():
 			logger.debug("...")
 			self.content_descriptor.append("n/a")
 
-		epglang = config.plugins.moviecockpit.epglang.value
-		lang = (language_iso639_2to3(epglang.lower()[:2])).upper()
+		lang = language_iso639_2to3(self.epglang.lower()[:2]).upper()
 
-		# Parse the data
 		pos = 0
 		parseHeader(data, pos)
 		pos += 12

@@ -29,7 +29,6 @@ from timer import TimerEntry
 from DelayTimer import DelayTimer
 from ParserMetaFile import ParserMetaFile
 from FileCache import FileCache
-from FileCacheUtils import FILE_TYPE_FILE
 from FileOpManager import FileOpManager
 import Screens.Standby
 from RecordTimer import AFTEREVENT
@@ -78,11 +77,11 @@ class Recording():
 					ParserMetaFile(timer.Filename).updateXMeta({"recording_stop_time": int(time.time())})
 					FileCache.getInstance().loadDatabaseFile(timer.Filename)
 					if Screens.Standby.inStandby and config.misc.standbyCounter.value == 1 and config.plugins.cachecockpit.archive_enable.value:
-						FileOpManager.getInstance().doFileOp(FILE_OP_MOVE, timer.Filename, config.plugins.cachecockpit.archive_target_dir.value, FILE_TYPE_FILE, self.handleAfterEvent)
+						FileOpManager.getInstance().doFileOp(FILE_OP_MOVE, timer.Filename, config.plugins.cachecockpit.archive_target_dir.value, self.handleAfterEvent)
 						if hasattr(timer, "afterEvent1"):
 							timer.afterEvent = timer.afterEvent1
 
-	def handleAfterEvent(self, _file_op, _path, _target_dir, _file_type, _error):
+	def handleAfterEvent(self, _file_op, _path, _target_dir, _error):
 		logger.debug("...")
 		jobs = len(FileOpManager.getInstance().getPendingJobs())
 		if jobs <= 1:

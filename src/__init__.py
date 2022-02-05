@@ -19,6 +19,7 @@
 # <http://www.gnu.org/licenses/>.
 
 
+import os
 from Components.Language import language
 from Tools.Directories import resolveFilename, SCOPE_PLUGINS
 from os import environ
@@ -30,7 +31,10 @@ from Debug import initLogging
 def initLocale():
 	lang = language.getLanguage()[:2]
 	environ["LANGUAGE"] = lang
-	gettext.bindtextdomain(PLUGIN, resolveFilename(SCOPE_PLUGINS, "SystemPlugins/" + PLUGIN + "/locale"))
+	locale = resolveFilename(SCOPE_PLUGINS, "Extensions/" + PLUGIN + "/locale")
+	if not os.path.exists(locale):
+		locale = resolveFilename(SCOPE_PLUGINS, "SystemPlugins/" + PLUGIN + "/locale")
+	gettext.bindtextdomain(PLUGIN, locale)
 
 
 def _(txt):

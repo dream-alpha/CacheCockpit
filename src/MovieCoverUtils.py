@@ -26,11 +26,22 @@ from Components.config import config
 
 def getCoverPath(path):
 	logger.debug("path: %s", path)
-	cover_path = os.path.splitext(path)[0] + ".jpg"
+	cover_bookmark = config.plugins.moviecockpit.cover_bookmark.value
+	base = os.path.splitext(path)[0]
+	cover_path = base + ".jpg"
+	backdrop_path = base + ".backdrop.jpg"
+	info_path = base + ".txt"
 	if config.plugins.moviecockpit.cover_flash.value:
-		cover_path = os.path.normpath(config.plugins.moviecockpit.cover_bookmark.value + "/" + cover_path)
-	cover_file_name, cover_ext = os.path.splitext(cover_path)
-	backdrop_path = cover_file_name + ".backdrop" + cover_ext
-	info_path = cover_file_name + ".txt"
+		cover_path = os.path.normpath(cover_bookmark + "/" + cover_path)
+		backdrop_path = os.path.normpath(cover_bookmark + "/" + backdrop_path)
+		info_path = os.path.normpath(cover_bookmark + "/" + info_path)
 	logger.debug("cover_path: %s, backdrop_path: %s, info_path: %s", cover_path, backdrop_path, info_path)
 	return cover_path, backdrop_path, info_path
+
+
+def getCoverTargetDir(target_dir):
+	logger.info("target_dir: %s", target_dir)
+	cover_target_dir = target_dir
+	if config.plugins.moviecockpit.cover_flash.value:
+		cover_target_dir = os.path.normpath(config.plugins.moviecockpit.cover_bookmark.value + "/" + target_dir)
+	return cover_target_dir, cover_target_dir, cover_target_dir

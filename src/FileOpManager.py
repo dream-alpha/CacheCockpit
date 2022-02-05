@@ -21,6 +21,7 @@
 
 from Debug import logger
 import os
+import time
 from Components.config import config
 from FileCache import FileCache
 from FileCacheUtils import FILE_TYPE_FILE, FILE_IDX_TYPE, FILE_IDX_PATH
@@ -28,7 +29,7 @@ from RecordingUtils import isRecording
 from Components.Task import Job, job_manager
 from FileOpManagerTask import FileOpManagerTask
 from FileOp import FileOp
-from FileOpUtils import FILE_OP_MOVE, FILE_OP_COPY
+from FileOpUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
 
 
@@ -61,7 +62,7 @@ class FileOpManager(FileOp):
 		logger.debug("lock_list: %s", str(lock_list))
 		return lock_list
 
-	def addJob(self, file_op, path, target_dir, file_type):
+	def addJob(self, file_op, path, target_dir):
 		job = Job(path)
 		job.file_op = file_op
 		jobs = job_manager.getPendingJobs()
@@ -71,34 +72,35 @@ class FileOpManager(FileOp):
 				add = False
 				break
 		if add:
-			FileOpManagerTask(job, file_op, path, target_dir, file_type, self.callbackJob)
+			FileOpManagerTask(job, file_op, path, target_dir, self.callbackJob)
 			job_manager.AddJob(job)
 
-	def callbackJob(self, file_op, path, target_dir, file_type, error):
+	def callbackJob(self, file_op, path, target_dir, error):
 		logger.debug("path: %s, error: %s, callback: %s", path, error, self.callback)
 		if self.callback:
 			if error:
 				job_manager.active_jobs = []
-			self.callback(file_op, path, target_dir, file_type, error)
+			self.callback(file_op, path, target_dir, error)
 
 	def cancelJobs(self):
 		logger.debug("...")
 		job_manager.active_jobs = []
-		job_manager.active_job.abort()
+		if job_manager.active_job:
+			job_manager.active_job.abort()
 
 	def getPendingJobs(self):
 		return job_manager.getPendingJobs()
 
 ### fileopmanager functions
 
-	def doFileOp(self, file_op, path, target_dir, file_type, callback=None):
-		logger.debug("file_op: %s, path: %s, target_dir: %s, file_type: %s", file_op, path, target_dir, file_type)
+	def doFileOp(self, file_op, path, target_dir, callback=None):
+		logger.debug("file_op: %s, path: %s, target_dir: %s", file_op, path, target_dir)
 		if callback:
 			self.callback = callback
 		if target_dir and (file_op == FILE_OP_COPY or (file_op == FILE_OP_MOVE and MountCockpit.getInstance().getMountPoint("MVC", target_dir) != MountCockpit.getInstance().getMountPoint("MVC", path))):
-			self.addJob(file_op, path, target_dir, file_type)
+			self.addJob(file_op, path, target_dir)
 		else:
-			self.execFileOp(file_op, path, target_dir, file_type, self.callback)
+			self.execFileOp(file_op, path, target_dir, self.callback)
 
 	def archive(self, callback=None):
 		logger.info("...")
@@ -108,10 +110,34 @@ class FileOpManager(FileOp):
 		archive_target_dir = config.plugins.cachecockpit.archive_target_dir.value
 		logger.info("archive_source_dir: %s, archive_target_dir: %s", archive_source_dir, archive_target_dir)
 		if os.path.exists(archive_source_dir) and os.path.exists(archive_target_dir):
-			file_list = FileCache.getInstance().getFileList([archive_source_dir], False)
-			for afile in file_list:
-				if afile[FILE_IDX_TYPE] == FILE_TYPE_FILE and not isRecording(afile[FILE_IDX_PATH]):
-					logger.debug("path: %s", afile[FILE_IDX_PATH])
-					self.addJob(FILE_OP_MOVE, afile[FILE_IDX_PATH], archive_target_dir, FILE_TYPE_FILE)
+			if os.path.realpath(archive_source_dir) != os.path.realpath(archive_target_dir):
+				file_list = FileCache.getInstance().getFileList([archive_source_dir], False)
+				for afile in file_list:
+					if afile[FILE_IDX_TYPE] == FILE_TYPE_FILE and not isRecording(afile[FILE_IDX_PATH]):
+						logger.debug("path: %s", afile[FILE_IDX_PATH])
+						self.addJob(FILE_OP_MOVE, afile[FILE_IDX_PATH], archive_target_dir)
+			else:
+				logger.error("archive_source_dir and archive_target_dir are identical.")
 		else:
 			logger.error("archive_source_dir and/or archive_target_dir does not exist.")
+
+	def purgeTrashcan(self, retention=0):
+		logger.info("...")
+		deleted_files = 0
+		now = time.localtime()
+		trashcan_dir = os.path.join(MountCockpit.getInstance().getHomeDir("MVC"), "trashcan")
+		logger.debug("trashcan_dir: %s", trashcan_dir)
+		file_list = FileCache.getInstance().getFileList([trashcan_dir])
+		file_list += FileCache.getInstance().getDirList([trashcan_dir])
+		for afile in file_list:
+			path = afile[FILE_IDX_PATH]
+			if os.path.exists(path):
+				if now > time.localtime(os.stat(path).st_mtime + 24 * 60 * 60 * retention):
+					logger.info("path: %s", path)
+					deleted_files += 1
+					self.execFileOp(FILE_OP_DELETE, path, None)
+			else:
+				logger.info("path: %s", path)
+				deleted_files += 1
+				self.execFileOp(FILE_OP_DELETE, path, None)
+		logger.info("deleted_files: %d", deleted_files)

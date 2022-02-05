@@ -19,8 +19,8 @@
 # <http://www.gnu.org/licenses/>.
 
 
+import sqlite3 as sqlite
 from Debug import logger
-from sqlite3 import dbapi2 as sqlite
 from FileCacheUtils import SQL_DB_NAME, FILE_IDX_CUTS
 
 
@@ -58,11 +58,10 @@ class FileCacheSQL():
 		self.cursor.execute(sql, args)
 		self.sql_conn.commit()
 
-	def sqlInsert(self, file_data):
-		data = list(file_data)
-		data[FILE_IDX_CUTS] = sqlite.Binary(data[FILE_IDX_CUTS])
-		file_data = tuple(data)
-		self.cursor.execute("""REPLACE INTO recordings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", file_data)
+	def sqlInsert(self, afile):
+		afile = list(afile)
+		afile[FILE_IDX_CUTS] = sqlite.Binary(afile[FILE_IDX_CUTS])
+		self.cursor.execute("""REPLACE INTO recordings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", afile)
 		self.sql_conn.commit()
 
 	def sqlClose(self):

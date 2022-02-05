@@ -19,6 +19,7 @@
 # <http://www.gnu.org/licenses/>.
 
 
+from __init__ import _
 import os
 from Debug import logger
 from Version import VERSION
@@ -28,11 +29,17 @@ from FileCache import FileCache
 from Debug import createLogFile
 from FileUtils import deleteFile, touchFile
 from ConfigInit import ConfigInit
+from ConfigScreen import ConfigScreen
 import Screens.Standby
 import Standby
 from FileOpManager import FileOpManager
 from Recording import Recording
-from Trashcan import Trashcan
+from SkinUtils import initPluginSkinPath, loadPluginSkin
+
+
+def openSettings(session, **__):
+	logger.info("...")
+	session.open(ConfigScreen, config.plugins.moviecockpit)
 
 
 def enteringStandby(reason):
@@ -59,8 +66,9 @@ def autostart(reason, **kwargs):
 			# session = kwargs["session"]
 			touchFile("/etc/enigma2/.cac")
 			FileCache.getInstance()
-			Trashcan.getInstance()
 			Recording()
+			initPluginSkinPath()
+			loadPluginSkin("skin.xml")
 	elif reason == 1:  # shutdown
 		logger.info("--- shutdown")
 		if not os.path.exists("/etc/enigma2/.cachecockpit"):
@@ -87,6 +95,19 @@ def Plugins(**__):
 				PluginDescriptor.WHERE_AUTOSTART
 			],
 			fnc=autostart
+		)
+	)
+
+	descriptors.append(
+		PluginDescriptor(
+			name="CacheCockpit" + " - " + _("Setup"),
+			description=_("Open setup"),
+			icon="CacheCockpit.svg",
+			where=[
+				PluginDescriptor.WHERE_PLUGINMENU,
+				PluginDescriptor.WHERE_EXTENSIONSMENU
+			],
+			fnc=openSettings
 		)
 	)
 
