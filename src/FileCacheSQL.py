@@ -26,17 +26,21 @@ from FileCacheUtils import SQL_DB_NAME, FILE_IDX_CUTS
 
 class FileCacheSQL():
 
+	RECORDING_COLUMNS = [
+		"directory TEXT", "file_type INTEGER", "path TEXT", "file_name TEXT", "file_ext TEXT", "name TEXT",
+		"event_start_time INTEGER", "recording_start_time INTEGER", "recording_stop_time INTEGER", "length INTEGER",
+		"description TEXT", "extended_description TEXT", "service_reference TEXT", "size INTEGER", "cuts BLOB", "tags TEXT"
+	]
+
 	def __init__(self):
 		logger.info("...")
 		self.sql_conn = sqlite.connect(SQL_DB_NAME)
 		self.sqlCreateTable()
 
 	def sqlCreateTable(self):
-		self.sql_conn.execute(
-			"""CREATE TABLE IF NOT EXISTS recordings (directory TEXT, file_type INTEGER, path TEXT, file_name TEXT, file_ext TEXT, name TEXT, event_start_time INTEGER, recording_start_time INTEGER, recording_stop_time INTEGER, length INTEGER,\
-			description TEXT, extended_description TEXT, service_reference TEXT, size INTEGER, cuts BLOB, tags TEXT)"""
-		)
-		self.sql_conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_path ON recordings (path)")
+		columns = ", ".join(column for column in self.RECORDING_COLUMNS)
+		self.sql_conn.execute("""CREATE TABLE IF NOT EXISTS recordings ({})""".format(columns))
+		self.sql_conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_path ON recordings (path)""")
 		self.sql_conn.text_factory = str
 		self.cursor = self.sql_conn.cursor()
 
@@ -61,7 +65,8 @@ class FileCacheSQL():
 	def sqlInsert(self, afile):
 		afile = list(afile)
 		afile[FILE_IDX_CUTS] = sqlite.Binary(afile[FILE_IDX_CUTS])
-		self.cursor.execute("""REPLACE INTO recordings VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", afile)
+		binds = ",".join("?" * len(afile))
+		self.cursor.execute("""REPLACE INTO recordings VALUES ({})""".format(binds), afile)
 		self.sql_conn.commit()
 
 	def sqlClose(self):

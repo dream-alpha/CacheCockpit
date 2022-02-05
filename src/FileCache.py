@@ -104,12 +104,16 @@ class FileCache(FileCacheSQL):
 		logger.debug("%s, kwargs: %s", path, kwargs)
 		afile = self.getFile(path)
 		if afile:
-			self.directory, self.file_type, self.path, self.file_name, self.ext, self.name, self.event_start_time, self.recording_start_time, self.recording_stop_time, self.length, self.description, self.extended_description, self.service_reference, self.size, self.cuts, self.tags = afile
+			afile = list(afile)
+			column_keys = [column.split(" ")[0] for column in self.RECORDING_COLUMNS]
 			logger.debug("kwargs.items(): %s", kwargs.items())
 			for key, value in kwargs.items():
 				logger.debug("key: %s, value: %s", key, value)
-				setattr(self, key, value)
-			self.add((self.directory, self.file_type, self.path, self.file_name, self.ext, self.name, self.event_start_time, self.recording_start_time, self.recording_stop_time, self.length, self.description, self.extended_description, self.service_reference, self.size, self.cuts, self.tags))
+				if key in column_keys:
+					afile[column_keys.index(key)] = value
+				else:
+					logger.error("invalid column key: %s", key)
+			self.add(afile)
 
 	def copy(self, src_path, dst_dir):
 		logger.debug("src_path: %s, dst_dir: %s", src_path, dst_dir)
