@@ -22,6 +22,7 @@
 FILE_OP_DELETE = 1
 FILE_OP_MOVE = 2
 FILE_OP_COPY = 3
+FILE_OP_LOAD = 4 # loadDatabaseCache
 
 
 FILE_OP_ERROR_NONE = 0

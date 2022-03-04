@@ -19,8 +19,8 @@
 # <http://www.gnu.org/licenses/>.
 
 
-from Debug import logger
 import os
+from Debug import logger
 from pipes import quote
 from MovieCoverUtils import getCoverPath, getCoverTargetDir
 from Shell import Shell
@@ -28,14 +28,7 @@ from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
 from Plugins.SystemPlugins.MountCockpit.MountUtils import getBookmarkSpaceInfo
 from FileCache import FileCache
 from Components.config import config
-
-
-FILE_OP_DELETE = 1
-FILE_OP_MOVE = 2
-FILE_OP_COPY = 3
-
-FILE_OP_ERROR_NONE = 0
-FILE_OP_ERROR_NO_DISKSPACE = 1
+from FileOpUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY, FILE_OP_ERROR_NONE, FILE_OP_ERROR_NO_DISKSPACE
 
 
 class FileOp(Shell):

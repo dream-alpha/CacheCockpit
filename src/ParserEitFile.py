@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# EitSupport
 # Copyright (C) 2011 by betonme
 # Copyright (C) 2018-2022 by dream-alpha
 #
@@ -21,10 +20,9 @@
 # <http://www.gnu.org/licenses/>.
 
 
-from Debug import logger
 import os
 import struct
-import re
+from Debug import logger
 from Tools.ISO639 import LanguageCodes
 from FileUtils import readFile
 import datetime
@@ -36,15 +34,7 @@ class ParserEitFile():
 
 	def __init__(self, path, epglang):
 		self.epglang = epglang
-		self.eit = {
-			"start": 0,
-			"length": 0,
-			"name": "",
-			"short_description": "",
-			"description": "",
-			"when": "",
-			"content": "",
-		}
+		self.eit = {}
 		self.name_event_descriptor = []
 		self.name_event_descriptor_multi = []
 		self.name_event_codepage = None
@@ -66,7 +56,7 @@ class ParserEitFile():
 		eit_path = path + ".eit"
 		if not os.path.exists(eit_path):
 			# Strip existing cut number
-			if path[-4:-3] == "_" and path[-3:].isdigit():
+			if path[-4] == "_" and path[-3:].isdigit():
 				path = path[:-4]
 				eit_path = path + ".eit"
 				if not os.path.exists(eit_path):
@@ -75,8 +65,6 @@ class ParserEitFile():
 			data = readFile(eit_path)
 			if data and len(data) >= 12:
 				self.__parse(data)
-
-	### Get functions
 
 	def getEit(self):
 		if self.eit["short_description"].startswith(self.eit["name"]):
@@ -93,7 +81,7 @@ class ParserEitFile():
 		EIT_PARENTAL_RATING_DESCRIPTOR = 0x55
 		EIT_PDC_DESCRIPTOR = 0x69
 
-		def make_int(s):
+		def makeInt(s):
 			return int(s) if s else 0
 
 		def parseMJD(MJD):
@@ -161,11 +149,11 @@ class ParserEitFile():
 
 			length_hhmmss = unBCD(e[5]), unBCD(e[6]), unBCD(e[7])	# HH, MM, SS
 			if len(length_hhmmss) > 2:
-				event_length = make_int((length_hhmmss[0] * 60 + length_hhmmss[1]) * 60 + length_hhmmss[2])
+				event_length = makeInt((length_hhmmss[0] * 60 + length_hhmmss[1]) * 60 + length_hhmmss[2])
 			elif len(length_hhmmss) > 1:
-				event_length = make_int(length_hhmmss[0] * 60 + length_hhmmss[1])
+				event_length = makeInt(length_hhmmss[0] * 60 + length_hhmmss[1])
 			else:
-				event_length = make_int(length_hhmmss)
+				event_length = makeInt(length_hhmmss)
 			self.eit["length"] = event_length
 
 			#free_CA_mode = e[8] & 0x1000
@@ -260,7 +248,6 @@ class ParserEitFile():
 
 			elif rec == EIT_CONTENT_DESCRIPTOR:
 				parseContentDescriptor(data, pos)
-				self.eit['content'] = self.content_descriptor
 
 			elif rec == EIT_LINKAGE_DESCRIPTOR:
 				self.linkage_descriptor.append(data[pos + 8:pos + length])
@@ -276,6 +263,8 @@ class ParserEitFile():
 				logger.info("%s", (data[pos:pos + length]))
 
 			pos += length
+
+		self.eit['content'] = self.content_descriptor
 
 		if self.name_event_descriptor:
 			self.name_event_descriptor = "".join(self.name_event_descriptor)
@@ -294,7 +283,4 @@ class ParserEitFile():
 		else:
 			self.extended_event_descriptor = ("".join(self.extended_event_descriptor_multi)).strip()
 		self.extended_event_descriptor = convertToUtf8(self.extended_event_descriptor, self.extended_event_codepage)
-		if self.extended_event_descriptor:
-			# This will fix EIT data of RTL group with missing line breaks in extended event description
-			self.extended_event_descriptor = re.sub('((?:Moderat(?:ion:|or(?:in){0,1})|Vorsitz: |Jur(?:isten|y): |G(?:\xC3\xA4|a)st(?:e){0,1}: |Mit (?:Staatsanwalt|Richter(?:in){0,1}|den Schadenregulierern) |Julia Leisch).*?[a-z]+)(\'{0,1}[0-9A-Z\'])', r'\1\n\n\2', self.extended_event_descriptor)
 		self.eit['description'] = self.extended_event_descriptor

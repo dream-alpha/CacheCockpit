@@ -19,9 +19,9 @@
 # <http://www.gnu.org/licenses/>.
 
 
-from Debug import logger
 import os
 import time
+from Debug import logger
 from enigma import quitMainloop
 from Components.config import config
 import NavigationInstance
@@ -43,11 +43,11 @@ class Recording():
 		NavigationInstance.instance.RecordTimer.on_state_change.append(self.recordingEvent)
 		self.check4ActiveRecordings()
 
-	def updateXMetaFile(self, timer):
+	def initXMetaFile(self, timer):
 		ParserMetaFile(timer.Filename).updateXMeta({
 			"recording_start_time": int(time.time()),
-			"timer_start_time": int(timer.begin + config.recording.margin_before.value * 60),
-			"timer_stop_time": int(timer.end - config.recording.margin_after.value * 60),
+			"timer_start_time": timer.begin,
+			"timer_stop_time": timer.end,
 			"recording_margin_before": config.recording.margin_before.value * 60,
 			"recording_margin_after": config.recording.margin_after.value * 60,
 		})
@@ -68,7 +68,7 @@ class Recording():
 					self.after_events.append(timer.afterEvent)
 					timer.afterEvent1 = timer.afterEvent
 					timer.afterEvent = AFTEREVENT.NONE
-				self.updateXMetaFile(timer)
+				self.initXMetaFile(timer)
 				DelayTimer(250, FileCache.getInstance().loadDatabaseFile, timer.Filename)
 
 			elif timer.state == TimerEntry.StateEnded or timer.state == TimerEntry.StateWaiting:
@@ -108,5 +108,5 @@ class Recording():
 			if timer.Filename and timer.isRunning() and not timer.justplay:
 				if not FileCache.getInstance().exists(timer.Filename):
 					logger.debug("loadDatabaseFile: %s", timer.Filename)
-					self.updateXMetaFile(timer)
+					self.initXMetaFile(timer)
 					FileCache.getInstance().loadDatabaseFile(timer.Filename)

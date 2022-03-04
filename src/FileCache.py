@@ -19,9 +19,9 @@
 # <http://www.gnu.org/licenses/>.
 
 
-from Debug import logger
 import os
 import time
+from Debug import logger
 from Components.config import config
 from FileCacheSQL import FileCacheSQL
 from datetime import datetime
@@ -34,6 +34,7 @@ from DelayTimer import DelayTimer
 from UnicodeUtils import convertToUtf8
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
 from FileCacheUtils import SQL_DB_NAME, FILE_TYPE_FILE, FILE_IDX_TYPE, FILE_TYPE_DIR, FILE_IDX_DIR, FILE_IDX_PATH, FILE_IDX_FILENAME, FILE_IDX_SIZE
+from FileOpUtils import FILE_OP_LOAD
 
 
 instance = None
@@ -56,6 +57,9 @@ class FileCache(FileCacheSQL):
 		else:
 			logger.info("database is already loaded.")
 			self.database_loaded = True
+		self.files_total = 0
+		self.files_done = 0
+		self.file_name = ""
 
 	@staticmethod
 	def getInstance():
@@ -86,6 +90,7 @@ class FileCache(FileCacheSQL):
 ### cache functions
 
 	def add(self, afile):
+		logger.info("afile: %s", afile)
 		self.sqlInsert(afile)
 
 	### database row functions
@@ -122,19 +127,19 @@ class FileCache(FileCacheSQL):
 			path = afile[FILE_IDX_PATH]
 			dst_path = os.path.join(dst_dir, path[len(os.path.dirname(src_path)) + 1:])
 			dst_dir = os.path.dirname(dst_path)
-			dest_file = self.getFile(dst_path)
-			if dest_file is None:
-				dest_file = list(afile)
-				dest_file[FILE_IDX_DIR] = os.path.dirname(dst_path)
-				dest_file[FILE_IDX_PATH] = dst_path
-				self.add(dest_file)
+			dst_file = self.getFile(dst_path)
+			if dst_file is None:
+				dst_file = list(afile)
+				dst_file[FILE_IDX_DIR] = os.path.dirname(dst_path)
+				dst_file[FILE_IDX_PATH] = dst_path
+				self.add(dst_file)
 			else:
 				logger.error("file already exists at destination: %s", dst_path)
 
-	def move(self, src_path, dest_dir):
-		logger.debug("src_path: %s, dest_dir: %s", src_path, dest_dir)
-		if os.path.dirname(src_path) != dest_dir:
-			self.copy(src_path, dest_dir)
+	def move(self, src_path, dst_dir):
+		logger.debug("src_path: %s, dst_dir: %s", src_path, dst_dir)
+		if os.path.dirname(src_path) != dst_dir:
+			self.copy(src_path, dst_dir)
 			self.delete(src_path)
 
 	def getFile(self, path):
@@ -216,6 +221,13 @@ class FileCache(FileCacheSQL):
 		logger.debug("...")
 		self.sqlClearTable()
 
+	def getProgress(self):
+		logger.debug("files_total: %s, files_done: %s", self.files_total, self.files_done)
+		percent = 100
+		if self.files_total:
+			percent = self.files_done / self.files_total * 100
+		return self.files_total - self.files_done, self.file_name, FILE_OP_LOAD, percent
+
 	def loadDatabase(self, dirs=None):
 		if dirs is None:
 			self.bookmarks = MountCockpit.getInstance().getMountedBookmarks("MVC")
@@ -224,13 +236,18 @@ class FileCache(FileCacheSQL):
 		if dirs:
 			self.clearDatabase()
 			self.load_list = self.getDirsLoadList(dirs)
+			self.files_total = len(self.load_list)
+			self.files_done = 0
+			self.file_name = ""
 			DelayTimer(10, self.nextFileOp)
 
 	def nextFileOp(self):
 		logger.debug("...")
 		if self.load_list:
 			path = self.load_list.pop(0)
+			self.file_name = os.path.basename(path)
 			self.loadDatabaseFile(path)
+			self.files_done += 1
 			DelayTimer(10, self.nextFileOp)
 		else:
 			logger.debug("done.")
@@ -243,18 +260,17 @@ class FileCache(FileCacheSQL):
 		logger.debug("path: %s", path)
 		if os.path.isfile(path):
 			afile = self.newFileData(path)
-			self.sqlInsert(afile)
+			self.add(afile)
 		elif os.path.isdir(path) or os.path.islink(path):
 			afile = self.newDirData(path)
-			self.sqlInsert(afile)
+			self.add(afile)
 		if self.database_loaded:
 			self.onDatabaseChangedCallback()
 
 	def newDirData(self, path):
-		logger.debug("path: %s", path)
+		logger.info("path: %s", path)
 		ext, short_description, extended_description, service_reference, cuts, tags = "", "", "", "", "", ""
-		size = length = recording_start_time = recording_stop_time = 0
-		event_start_time = int(os.stat(path).st_ctime)
+		size = length = event_start_time = recording_start_time = recording_stop_time = 0
 		name = convertToUtf8(os.path.basename(path))
 		return (os.path.dirname(path), FILE_TYPE_DIR, path, os.path.basename(path), ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags)
 
@@ -264,35 +280,27 @@ class FileCache(FileCacheSQL):
 			name = file_name
 			service_name = ""
 			start_time = 0
-
 			words = file_name.split(" - ", 2)
-
 			date_string = words[0]
 			if date_string[0:8].isdigit() and date_string[8] == " " and date_string[9:13].isdigit():
 				# Default: file_name = YYYYMMDD TIME - service_name
 				dt = datetime.strptime(date_string, '%Y%m%d %H%M')
 				start_time = int(time.mktime(dt.timetuple()))
-
 			if len(words) > 1:
 				service_name = words[1]
 			if len(words) > 2:
 				name = words[2]
-
 			cutno = ""
-			if name[-4:-3] == "_" and name[-3:].isdigit():
+			if name[-4] == "_" and name[-3:].isdigit():
 				cutno = name[-3:]
 				name = name[:-4]
-
 			logger.debug("file_name: %s, start_time: %s, service_name: %s, name: %s, cutno: %s", file_name, start_time, service_name, name, cutno)
 			return start_time, service_name, name, cutno
 
-		def getEitData(eit, recording_start_time, recording_stop_time):
-			logger.debug("recording_start_time: %s, recording_stop_time: %s", recording_start_time, recording_stop_time)
-			name = eit["name"]
+		def getEitStartLength(eit, recording_start_time, recording_stop_time):
+			logger.debug("recording_start_time: %s, recording_stop_time: %s", datetime.fromtimestamp(recording_start_time), datetime.fromtimestamp(recording_stop_time))
 			event_start_time = eit["start"]
 			length = eit["length"]
-			short_description = eit["short_description"]
-			extended_description = eit["description"]
 			if recording_start_time:
 				if recording_start_time > event_start_time:
 					length -= recording_start_time - event_start_time
@@ -302,76 +310,55 @@ class FileCache(FileCacheSQL):
 					length = recording_stop_time - event_start_time
 				elif recording_stop_time < event_start_time:
 					length = 0
-			logger.debug("event_start_time: %s, length: %s", event_start_time, length)
-			return name, event_start_time, length, short_description, extended_description
+			logger.debug("event_start_time: %s, length: %s", datetime.fromtimestamp(event_start_time), length)
+			return event_start_time, length
 
-		def getMetaData(meta, recording_start_time, recording_stop_time, timer_start_time, timer_stop_time):
-			logger.info("recording_start_time: %s, recording_stop_time: %s, timer_start_time: %s, timer_stop_time: %s", recording_start_time, recording_stop_time, timer_start_time, timer_stop_time)
-			name = meta["name"]
-			start_time = meta["rec_time"]
-			if meta["recording_margin_before"]:
-				start_time += meta["recording_margin_before"]
+		def getMetaStartLength(_meta, recording_start_time, recording_stop_time):
+			logger.info("recording_start_time: %s, recording_stop_time: %s", datetime.fromtimestamp(recording_start_time), datetime.fromtimestamp(recording_stop_time))
 			length = 0
-			short_description = ""
-			extended_description = ""
+			if recording_start_time and recording_stop_time:
+				length = recording_stop_time - recording_start_time
+			logger.debug("start_time: %s, length: %s", datetime.fromtimestamp(recording_start_time), length)
+			return recording_start_time, length
 
-			if timer_start_time and timer_stop_time:
-				start = timer_start_time
-				stop = timer_stop_time
-				if recording_start_time and recording_start_time > timer_start_time:
-					start = recording_start_time
-				if start <= recording_stop_time <= timer_stop_time:
-					stop = recording_stop_time
-				length = stop - start
-			logger.debug("start_time: %s, length: %s", start_time, length)
-			return name, start_time, length, short_description, extended_description
-
-		logger.debug("path: %s", path)
-		filepath, ext = os.path.splitext(path)
-		file_name = os.path.basename(filepath)
-		name = convertToUtf8(os.path.basename(file_name))
+		logger.info("path: %s", path)
+		file_path, ext = os.path.splitext(path)
+		file_name = os.path.basename(file_path)
+		file_dir = os.path.dirname(file_path)
+		name = convertToUtf8(file_name)
 		short_description, extended_description, service_reference, tags = "", "", "", ""
-		length = size = 0
+		length = 0
 		cuts = readFile(path + ".cuts")
-		event_start_time = recording_stop_time = recording_start_time = int(os.stat(path).st_ctime)
+		event_start_time = recording_stop_time = recording_start_time = 0
 		size = os.path.getsize(path)
 
 		if ext in EXT_TS:
 			start_time, _service_name, name, cutno = parseFilename(file_name)
-			logger.debug("start_time: %s, service_name: %s, file_name: %s, cutno: %s", start_time, _service_name, file_name, cutno)
 			if start_time:
 				event_start_time = start_time
 			meta = ParserMetaFile(path).getMeta()
-			meta_name = meta["name"]
-			if meta_name:
-				name = meta_name
-			eit = ParserEitFile(path, self.epglang).getEit()
-			eit_name = eit["name"]
-			if eit_name:
-				name = eit_name
-
-			if eit_name and meta_name:
+			if meta:
+				name = meta["name"]
 				service_reference = meta["service_reference"]
 				tags = meta["tags"]
 				recording_start_time = meta["recording_start_time"]
 				recording_stop_time = meta["recording_stop_time"]
-				timer_start_time = meta["timer_start_time"]
-				timer_stop_time = meta["timer_stop_time"]
-
-				eit_event_start_time = eit["start"]
-
-				if timer_stop_time and eit_event_start_time and eit_event_start_time >= timer_stop_time:
-					data = getMetaData(meta, recording_start_time, recording_stop_time, timer_start_time, timer_stop_time)
-				else:
-					data = getEitData(eit, recording_start_time, recording_stop_time)
-				name, event_start_time, length, short_description, extended_description = data
+				event_start_time, length = getMetaStartLength(meta, recording_start_time, recording_stop_time)
+			eit = ParserEitFile(path, self.epglang).getEit()
+			if eit:
+				name = eit["name"]
+				if name.startswith("FilmMittwoch im Ersten: "):
+					name = name[len("FilmMittwoch im Ersten: "):]
+				event_start_time, length = getEitStartLength(eit, recording_start_time, recording_stop_time)
+				short_description = eit["short_description"]
+				extended_description = eit["description"]
 			if cutno:
 				name = "%s (%s)" % (name, cutno)
 		else:
 			length = ptsToSeconds(getCutListLength(unpackCutList(cuts)))
 
 		logger.debug("path: %s, name: %s, event_start_time %s, length: %s", path, name, datetime.fromtimestamp(event_start_time), length)
-		return (os.path.dirname(path), FILE_TYPE_FILE, path, file_name, ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags)
+		return (file_dir, FILE_TYPE_FILE, path, file_name, ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags)
 
 	### database load list functions
 

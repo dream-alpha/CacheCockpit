@@ -91,6 +91,18 @@ class FileOpManager(FileOp):
 	def getPendingJobs(self):
 		return job_manager.getPendingJobs()
 
+	def getProgress(self):
+		file_name = ""
+		file_op = FILE_OP_DELETE
+		jobs = self.getPendingJobs()
+		progress = 0
+		if jobs:
+			job = jobs[0]
+			file_name = os.path.basename(job.name)
+			file_op = job.file_op
+			progress = job.progress
+		return len(jobs), file_name, file_op, progress
+
 ### fileopmanager functions
 
 	def doFileOp(self, file_op, path, target_dir, callback=None):
