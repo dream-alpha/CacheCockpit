@@ -46,6 +46,7 @@ class Recording():
 	def initXMetaFile(self, timer):
 		ParserMetaFile(timer.Filename).updateXMeta({
 			"recording_start_time": int(time.time()),
+			"recording_stop_time": 0,
 			"timer_start_time": timer.begin,
 			"timer_stop_time": timer.end,
 			"recording_margin_before": config.recording.margin_before.value * 60,

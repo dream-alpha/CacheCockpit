@@ -67,9 +67,10 @@ class ParserEitFile():
 				self.__parse(data)
 
 	def getEit(self):
-		if self.eit["short_description"].startswith(self.eit["name"]):
-			self.eit["short_description"] = self.eit["short_description"][len(self.eit["name"]) + 1:]
-		self.eit["short_description"] = self.eit["short_description"].replace("\n", ", ")
+		if self.eit:
+			if self.eit["short_description"].startswith(self.eit["name"]):
+				self.eit["short_description"] = self.eit["short_description"][len(self.eit["name"]) + 1:]
+			self.eit["short_description"] = self.eit["short_description"].replace("\n", ", ")
 		return self.eit
 
 	def __parse(self, data):

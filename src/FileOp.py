@@ -152,9 +152,9 @@ class FileOp(Shell):
 		logger.info("path: %s, target_dir: %s", path, target_dir)
 		cmds = self.__changeFileOwner(path, target_dir)
 		if os.path.isfile(path):
-			cmds += self.__execCoverOp("cp", path, target_dir)
+			cmds += self.__execCoverOp("cp -dp", path, target_dir)
 			path = os.path.splitext(path)[0]
-			cmds.append("cp " + quote(path) + ".* " + quote(target_dir))
+			cmds.append("cp -dp " + quote(path) + ".* " + quote(target_dir))
 		elif os.path.isdir(path) or os.path.islink(path):
 			cmds.append("cp -a " + quote(path) + " " + quote(target_dir))
 		logger.debug("cmds: %s", cmds)

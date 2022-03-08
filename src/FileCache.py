@@ -352,6 +352,10 @@ class FileCache(FileCacheSQL):
 				event_start_time, length = getEitStartLength(eit, recording_start_time, recording_stop_time)
 				short_description = eit["short_description"]
 				extended_description = eit["description"]
+			if not meta and not eit:
+				length = 0
+				recording_start_time = int(os.stat(path).st_ctime)
+				event_start_time = recording_start_time
 			if cutno:
 				name = "%s (%s)" % (name, cutno)
 		else:
