@@ -33,10 +33,8 @@ class ParserMetaFile():
 	]
 
 	xmeta_keys = [
-		"timer_start_time", "timer_stop_time", "recording_start_time", "recording_stop_time",
-		"recording_margin_before", "recording_margin_after", "datestring", "timestring",
-		"timestart", "year", "broadcaster", "title", "genre", "fsk",
-		"season", "episode_number", "episode_title", "rating"
+		"timer_start_time", "timer_stop_time", "recording_start_time", "recording_stop_time", "recording_margin_before",
+		"recording_margin_after"
 	]
 
 	def __init__(self, path):
@@ -98,11 +96,9 @@ class ParserMetaFile():
 		logger.debug("xmeta: %s", xmeta)
 		self.xmeta.update(xmeta)
 		logger.debug("self.xmeta: %s", self.xmeta)
-		alist = self.dict2list(self.xmeta, self.xmeta_keys)
-		self.saveXMeta(alist)
+		self.saveXMeta()
 
-	def saveXMeta(self, alist):
-		data = ""
-		for line in alist:
-			data += "%s\n" % line
+	def saveXMeta(self):
+		alist = self.dict2list(self.xmeta, self.xmeta_keys)
+		data = "\n".join([str(line) for line in alist])
 		writeFile(self.xmeta_path, data)

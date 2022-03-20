@@ -26,7 +26,7 @@ msgstr ""
 "#-#-#-#-#  de.po  #-#-#-#-#\n"
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-02-02 16:24+0100\n"
+"POT-Creation-Date: 2022-03-18 15:49+0100\n"
 "PO-Revision-Date: \n"
 "Last-Translator: dream-alpha\n"
 "Language-Team: \n"
@@ -290,6 +290,9 @@ msgstr "horizontal"
 
 msgid "vertical"
 msgstr "vertikal"
+
+msgid "automatic"
+msgstr "automatisch"
 
 msgid "beginning"
 msgstr "Film-Anfang"

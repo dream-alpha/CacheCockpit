@@ -131,6 +131,15 @@ choices_layout_button = [
 ]
 
 
+choices_cover_source = [
+	("tvs", "TV Spielfilm"),
+	("tvm", "TV Movie"),
+	("tvh", "HÖRZU"),
+	("tvfa", "TV Für Alle"),
+	("auto", _("automatic"))
+]
+
+
 def checkList(cfg):
 	for choices in cfg.choices.choices:
 		if cfg.value == choices[0]:
@@ -158,7 +167,6 @@ class ConfigInit():
 		config.plugins.moviecockpit                           = ConfigSubsection()
 		config.plugins.moviecockpit.timer_autoclean           = ConfigYesNo(default=False)
 		config.plugins.moviecockpit.cover_auto_download       = ConfigYesNo(default=False)
-		config.plugins.moviecockpit.cover_show                = ConfigYesNo(default=True)
 		config.plugins.moviecockpit.cover_flash               = ConfigYesNo(default=False)
 		config.plugins.moviecockpit.cover_bookmark            = ConfigDirectory(default="/data/movie")
 		config.plugins.moviecockpit.cover_fallback            = ConfigYesNo(default=True)
@@ -166,6 +174,7 @@ class ConfigInit():
 		config.plugins.moviecockpit.cover_language            = ConfigSelection(default=language.getActiveLanguage()[:2], choices=auto_lang_list)
 		config.plugins.moviecockpit.cover_size                = ConfigSelection(default="w500", choices=["w92", "w185", "w500", "original"])
 		config.plugins.moviecockpit.backdrop_size             = ConfigSelection(default="w1280", choices=["w300", "w780", "w1280", "original"])
+		config.plugins.moviecockpit.cover_source              = ConfigSelection(default="tvh", choices=choices_cover_source)
 		config.plugins.moviecockpit.fake_entry                = NoSave(ConfigNothing())
 		config.plugins.moviecockpit.extmenu_settings          = ConfigYesNo(default=True)
 		config.plugins.moviecockpit.extmenu_plugin            = ConfigYesNo(default=True)

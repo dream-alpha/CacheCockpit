@@ -1,6 +1,6 @@
 Description: CacheCockpit
 Maintainer: dream-alpha
 Package: enigma2-plugin-systemplugins-cachecockpit
-Version: 1.12.13
+Version: 1.13.6
 Architecture: all
 Depends: enigma2-plugin-systemplugins-mountcockpit

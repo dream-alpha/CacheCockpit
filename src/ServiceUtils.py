@@ -29,18 +29,18 @@ SID_M2TS = eServiceReference.idM2TS	# eServiceFactoryM2TS::id enum{id = 0x0003};
 SID_GST = eServiceReference.idGST	# eServiceFactoryGST::id  enum{id = 0x1001};
 
 
-EXT_TS = frozenset([".ts", ".trp"])
-EXT_M2TS = frozenset([".m2ts"])
-EXT_DVD = frozenset([".ifo", ".iso", ".img"])
-EXT_VIDEO = frozenset([".ts", ".trp", ".avi", ".divx", ".f4v", ".flv", ".img", ".ifo", ".iso", ".m2ts", ".m4v", ".mkv", ".mov", ".mp4", ".mpeg", ".mpg", ".mts", ".vob", ".wmv", ".bdmv", ".asf", ".stream", ".webm"])
-EXT_BLU = frozenset([".bdmv"])
+EXT_TS = [".ts", ".trp"]
+EXT_M2TS = [".m2ts"]
+EXT_DVD = [".ifo", ".iso", ".img"]
+EXT_VIDEO = [".avi", ".divx", ".f4v", ".flv", ".m4v", ".mkv", ".mov", ".mp4", ".mpeg", ".mpg", ".mts", ".vob", ".wmv", ".asf", ".stream", ".webm"]
+EXT_BLU = [".bdmv"]
 
+EXT_PICTURE = [".jpg", ".jpeg", ".png"]
+EXT_MUSIC = [".mp3", ".wma"]
+EXT_PLAYLIST = [".m3u"]
 
-ALL_VIDEO = [".avi", ".ts", ".trp", ".divx", ".f4v", ".img", ".ifo", ".iso", ".m4v", ".mkv", ".mov", ".mp4", ".mpeg", ".mpg", ".mts", ".vob", ".wmv", ".bdmv", ".asf", ".stream", ".webm"]
-ALL_PICTURE = [".jpg", ".jpeg", ".png"]
-ALL_MUSIC = [".mp3", ".wma"]
-ALL_PLAYLIST = [".m3u"]
-ALL_MEDIA = ALL_VIDEO + ALL_PICTURE + ALL_MUSIC + ALL_PLAYLIST
+ALL_VIDEO = EXT_TS + EXT_M2TS + EXT_DVD + EXT_VIDEO + EXT_BLU
+ALL_MEDIA = ALL_VIDEO + EXT_PICTURE + EXT_MUSIC + EXT_PLAYLIST
 
 
 DEFAULT_VIDEO_PID = 0x44

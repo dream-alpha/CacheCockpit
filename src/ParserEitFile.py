@@ -48,7 +48,7 @@ class ParserEitFile():
 		self.content_descriptor = []
 		self.linkage_descriptor = []
 		self.parental_rating_descriptor = []
-		self.pdc_descriptor = []
+		self.programme_delivery_control_descriptor = []
 		self.prev1_ISO_639_language_code = "x"
 		self.prev2_ISO_639_language_code = "x"
 
@@ -82,19 +82,16 @@ class ParserEitFile():
 		EIT_PARENTAL_RATING_DESCRIPTOR = 0x55
 		EIT_PDC_DESCRIPTOR = 0x69
 
-		def makeInt(s):
-			return int(s) if s else 0
-
-		def parseMJD(MJD):
-			# Parse 16 bit unsigned int containing Modified Julian Date as per DVB-SI spec
+		def parseMJD(mjd):
+			# parse 16 bit unsigned int containing modified Julian Date as per DVB-SI spec
 			# returning year, month, day
-			YY = int((MJD - 15078.2) / 365.25)
-			MM = int((MJD - 14956.1 - int(YY * 365.25)) / 30.6001)
-			D = MJD - 14956 - int(YY * 365.25) - int(MM * 30.6001)
-			K = 0
-			if MM in [14, 15]:
-				K = 1
-			return (1900 + YY + K), (MM - 1 - K * 12), D
+			yy = int((mjd - 15078.2) / 365.25)
+			mm = int((mjd - 14956.1 - int(yy * 365.25)) / 30.6001)
+			d = mjd - 14956 - int(yy * 365.25) - int(mm * 30.6001)
+			k = 0
+			if mm in [14, 15]:
+				k = 1
+			return (1900 + yy + k), (mm - 1 - k * 12), d
 
 		def unBCD(byte):
 			return (byte >> 4) * 10 + (byte & 0xf)
@@ -136,7 +133,7 @@ class ParserEitFile():
 
 		def parseHeader(data, pos):
 			e = struct.unpack(">HHBBBBBBH", data[pos:pos + 12])
-			#event_id = e[0]
+			self.eit["event_id"] = e[0]
 			y, mo, d = parseMJD(e[1])				# Y, M, D
 			h, mi, s = unBCD(e[2]), unBCD(e[3]), unBCD(e[4])	# HH, MM, SS
 			try:
@@ -148,14 +145,7 @@ class ParserEitFile():
 				logger.error("exception: %s", e)
 				self.eit["start"] = 0
 
-			length_hhmmss = unBCD(e[5]), unBCD(e[6]), unBCD(e[7])	# HH, MM, SS
-			if len(length_hhmmss) > 2:
-				event_length = makeInt((length_hhmmss[0] * 60 + length_hhmmss[1]) * 60 + length_hhmmss[2])
-			elif len(length_hhmmss) > 1:
-				event_length = makeInt(length_hhmmss[0] * 60 + length_hhmmss[1])
-			else:
-				event_length = makeInt(length_hhmmss)
-			self.eit["length"] = event_length
+			self.eit["length"] = unBCD(e[5]) * 3600 + unBCD(e[6]) * 60 + unBCD(e[7])
 
 			#free_CA_mode = e[8] & 0x1000
 			#descriptors_loop_length = e[8] & 0x0fff
@@ -257,7 +247,7 @@ class ParserEitFile():
 				self.parental_rating_descriptor.append(data[pos + 2:pos + length])
 
 			elif rec == EIT_PDC_DESCRIPTOR:
-				self.pdc_descriptor.append(data[pos + 5:pos + length])
+				self.programme_delivery_control_descriptor.append(data[pos + 5:pos + length])
 
 			else:
 				logger.info("unsupported descriptor: %x %x", rec, length)

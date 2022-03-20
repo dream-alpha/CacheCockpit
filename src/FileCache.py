@@ -28,7 +28,7 @@ from datetime import datetime
 from ParserEitFile import ParserEitFile
 from ParserMetaFile import ParserMetaFile
 from CutListUtils import unpackCutList, ptsToSeconds, getCutListLength
-from ServiceUtils import EXT_TS, EXT_VIDEO
+from ServiceUtils import EXT_TS, ALL_VIDEO
 from FileUtils import readFile, deleteFile
 from DelayTimer import DelayTimer
 from UnicodeUtils import convertToUtf8
@@ -124,9 +124,9 @@ class FileCache(FileCacheSQL):
 		logger.debug("src_path: %s, dst_dir: %s", src_path, dst_dir)
 		file_list = self.sqlSelect("path LIKE ?", [src_path + "%"])
 		for afile in file_list:
+			logger.debug("afile: %s", afile)
 			path = afile[FILE_IDX_PATH]
 			dst_path = os.path.join(dst_dir, path[len(os.path.dirname(src_path)) + 1:])
-			dst_dir = os.path.dirname(dst_path)
 			dst_file = self.getFile(dst_path)
 			if dst_file is None:
 				dst_file = list(afile)
@@ -375,7 +375,7 @@ class FileCache(FileCacheSQL):
 				path = os.path.join(adir, walk_name)
 				if os.path.isfile(path):
 					ext = os.path.splitext(path)[1]
-					if ext in EXT_VIDEO:
+					if ext in ALL_VIDEO:
 						load_list.append(path)
 				elif os.path.isdir(path):
 					load_list.append(path)
