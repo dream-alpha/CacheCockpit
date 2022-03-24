@@ -31,10 +31,20 @@ from Components.config import config
 from FileOpUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY, FILE_OP_ERROR_NONE, FILE_OP_ERROR_NO_DISKSPACE
 
 
+instance = None
+
+
 class FileOp(Shell):
 
 	def __init__(self):
 		Shell.__init__(self)
+
+	@staticmethod
+	def getInstance():
+		global instance
+		if instance is None:
+			instance = FileOp()
+		return instance
 
 	def abortFileOp(self):
 		logger.info("...")
@@ -44,19 +54,17 @@ class FileOp(Shell):
 		self.exec_file_op_callback = exec_file_op_callback
 		error = FILE_OP_ERROR_NONE
 		cmds = []
-		callback = []
+		callback = [self.exec_file_op_callback, file_op, path, target_dir, error]
 		logger.info("file_op: %s, path: %s, target_dir: %s", file_op, path, target_dir)
 		if file_op == FILE_OP_DELETE:
 			cmds = self.__execFileDelete(path)
-			callback = [self.__deleteCallback, path, target_dir]
 		elif file_op == FILE_OP_MOVE:
 			free = size = 0
 			if os.path.dirname(path) != target_dir and MountCockpit.getInstance().getMountPoint("MVC", path) != MountCockpit.getInstance().getMountPoint("MVC", target_dir):
-				_used_percent, _used, free = getBookmarkSpaceInfo(target_dir)
+				_used_percent, _used, free = getBookmarkSpaceInfo(MountCockpit.getInstance().getBookmark("MVC", target_dir))
 				_count, size = FileCache.getInstance().getCountSize(path)
 			logger.debug("FILE_OP_MOVE: size: %s, free: %s", size, free)
 			if free * 0.8 >= size:
-				callback = [self.__moveCallback, path, target_dir]
 				cmds = self.__execFileMove(path, target_dir)
 			else:
 				logger.info("FILE_OP_MOVE: not enough space left: size: %s, free: %s", size, free)
@@ -64,14 +72,13 @@ class FileOp(Shell):
 		elif file_op == FILE_OP_COPY:
 			free = size = 0
 			if os.path.dirname(path) != target_dir:
-				_used_percent, _used, free = getBookmarkSpaceInfo(target_dir)
+				_used_percent, _used, free = getBookmarkSpaceInfo(MountCockpit.getInstance().getBookmark("MVC", target_dir))
 				_count, size = FileCache.getInstance().getCountSize(path)
 			logger.debug("FILE_OP_COPY: size: %s, free: %s", size, free)
 			if free * 0.8 >= size:
-				callback = [self.__copyCallback, path, target_dir]
 				cmds = self.__execFileCopy(path, target_dir)
 			else:
-				logger.info("FILE_OP_MOVE: not enough space left: size: %s, free: %s", size, free)
+				logger.info("FILE_OP_COPY: not enough space left: size: %s, free: %s", size, free)
 				error = FILE_OP_ERROR_NO_DISKSPACE
 		if cmds:
 			logger.debug("cmds: %s", cmds)
@@ -86,30 +93,13 @@ class FileOp(Shell):
 					function = callback[0]
 					args = callback[1:]
 					logger.debug("function: %s, args: %s", function, args)
-					function(*args)
+					try:
+						function(*args)
+					except Exception as e:
+						logger.debug("function: %s, exception: %s", function, e)
 		else:
 			if self.exec_file_op_callback:
 				self.exec_file_op_callback(file_op, path, target_dir, error)
-
-	def __deleteCallback(self, path, target_dir):
-		logger.info("path: %s, target_dir: %s", path, target_dir)
-		FileCache.getInstance().delete(path)
-		if self.exec_file_op_callback:
-			self.exec_file_op_callback(FILE_OP_DELETE, path, target_dir, FILE_OP_ERROR_NONE)
-
-	def __moveCallback(self, path, target_dir):
-		logger.info("path: %s, target_dir: %s", path, target_dir)
-		FileCache.getInstance().move(path, target_dir)
-		if "trashcan" in target_dir and not FileCache.getInstance().exists(target_dir):
-			FileCache.getInstance().loadDatabaseFile(target_dir)
-		if self.exec_file_op_callback:
-			self.exec_file_op_callback(FILE_OP_MOVE, path, target_dir, FILE_OP_ERROR_NONE)
-
-	def __copyCallback(self, path, target_dir):
-		logger.info("path: %s, target_dir: %s", path, target_dir)
-		FileCache.getInstance().copy(path, target_dir)
-		if self.exec_file_op_callback:
-			self.exec_file_op_callback(FILE_OP_COPY, path, target_dir, FILE_OP_ERROR_NONE)
 
 	def __execFileDelete(self, path):
 		logger.info("path: %s", path)

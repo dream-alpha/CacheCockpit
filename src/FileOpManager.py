@@ -19,28 +19,26 @@
 # <http://www.gnu.org/licenses/>.
 
 
-from Debug import logger
 import os
 import time
+from Debug import logger
 from Components.config import config
 from FileCache import FileCache
-from FileCacheUtils import FILE_TYPE_FILE, FILE_IDX_TYPE, FILE_IDX_PATH
+from FileCacheUtils import FILE_TYPE_FILE, FILE_TYPE_DIR, FILE_IDX_TYPE, FILE_IDX_PATH
 from RecordingUtils import isRecording
-from Components.Task import Job, job_manager
-from FileOpManagerTask import FileOpManagerTask
 from FileOp import FileOp
 from FileOpUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
+from FileOpManagerJob import FileOpManagerJob
 
 
 instance = None
 
 
-class FileOpManager(FileOp):
+class FileOpManager(FileOpManagerJob):
 
 	def __init__(self):
-		FileOp.__init__(self)
-		self.callback = None
+		FileOpManagerJob.__init__(self)
 
 	@staticmethod
 	def getInstance():
@@ -49,85 +47,38 @@ class FileOpManager(FileOp):
 			instance = FileOpManager()
 		return instance
 
-	def setCallback(self, callback):
-		self.callback = callback
-
-### jobs functions
-
-	def getLockList(self):
-		lock_list = {}
-		jobs = self.getPendingJobs()
-		for job in jobs:
-			lock_list[job.name] = job.file_op
-		logger.debug("lock_list: %s", str(lock_list))
-		return lock_list
-
-	def addJob(self, file_op, path, target_dir):
-		job = Job(path)
-		job.file_op = file_op
-		jobs = job_manager.getPendingJobs()
-		add = True
-		for ajob in jobs:
-			if ajob.name == job.name:
-				add = False
-				break
-		if add:
-			FileOpManagerTask(job, file_op, path, target_dir, self.callbackJob)
-			job_manager.AddJob(job)
-
-	def callbackJob(self, file_op, path, target_dir, error):
-		logger.debug("path: %s, error: %s, callback: %s", path, error, self.callback)
-		if self.callback:
-			if error:
-				job_manager.active_jobs = []
-			self.callback(file_op, path, target_dir, error)
-
-	def cancelJobs(self):
-		logger.debug("...")
-		job_manager.active_jobs = []
-		if job_manager.active_job:
-			job_manager.active_job.abort()
-
-	def getPendingJobs(self):
-		return job_manager.getPendingJobs()
-
-	def getProgress(self):
-		file_name = ""
-		file_op = FILE_OP_DELETE
-		jobs = self.getPendingJobs()
-		progress = 0
-		if jobs:
-			job = jobs[0]
-			file_name = os.path.basename(job.name)
-			file_op = job.file_op
-			progress = job.progress
-		return len(jobs), file_name, file_op, progress
-
-### fileopmanager functions
-
-	def doFileOp(self, file_op, path, target_dir, callback=None):
+	def execFileOp(self, file_op, path, target_dir=None, fileop_callback=None):
 		logger.debug("file_op: %s, path: %s, target_dir: %s", file_op, path, target_dir)
-		if callback:
-			self.callback = callback
-		if target_dir and (file_op == FILE_OP_COPY or (file_op == FILE_OP_MOVE and MountCockpit.getInstance().getMountPoint("MVC", target_dir) != MountCockpit.getInstance().getMountPoint("MVC", path))):
-			self.addJob(file_op, path, target_dir)
+		if target_dir and (file_op == FILE_OP_COPY or (file_op == FILE_OP_MOVE and not MountCockpit.getInstance().sameMountPoint("MVC", path, target_dir))):
+			self.addJob(file_op, path, target_dir, fileop_callback)
 		else:
-			self.execFileOp(file_op, path, target_dir, self.callback)
+			FileOp.getInstance().execFileOp(file_op, path, target_dir, fileop_callback)
+			FileCache.getInstance().execFileOp(file_op, path, target_dir)
 
 	def archive(self, callback=None):
+
+		def addDirectory(adir):
+			logger.info("adir: %s", adir)
+			file_list = FileCache.getInstance().getFileList([adir], False)
+			file_list += FileCache.getInstance().getDirList([adir], False)
+			for afile in file_list:
+				if afile[FILE_IDX_TYPE] == FILE_TYPE_FILE and not isRecording(afile[FILE_IDX_PATH]):
+					logger.debug("path: %s", afile[FILE_IDX_PATH])
+					source_dir = os.path.dirname(afile[FILE_IDX_PATH])
+					source_sub_dir = source_dir[len(archive_source_dir) + 1:]
+					target_dir = os.path.normpath(os.path.join(archive_target_dir, source_sub_dir))
+					logger.debug("target_dir: %s", target_dir)
+					self.addJob(FILE_OP_MOVE, afile[FILE_IDX_PATH], target_dir, callback)
+				elif afile[FILE_IDX_TYPE] == FILE_TYPE_DIR:
+					addDirectory(afile[FILE_IDX_PATH])
+
 		logger.info("...")
-		if callback:
-			self.callback = callback
 		archive_source_dir = config.plugins.cachecockpit.archive_source_dir.value
 		archive_target_dir = config.plugins.cachecockpit.archive_target_dir.value
 		logger.info("archive_source_dir: %s, archive_target_dir: %s", archive_source_dir, archive_target_dir)
 		if os.path.exists(archive_source_dir) and os.path.exists(archive_target_dir):
 			if os.path.realpath(archive_source_dir) != os.path.realpath(archive_target_dir):
-				file_list = FileCache.getInstance().getFileList([archive_source_dir], False)
-				for afile in file_list:
-					if afile[FILE_IDX_TYPE] == FILE_TYPE_FILE and not isRecording(afile[FILE_IDX_PATH]):
-						logger.debug("path: %s", afile[FILE_IDX_PATH])
-						self.addJob(FILE_OP_MOVE, afile[FILE_IDX_PATH], archive_target_dir)
+				addDirectory(archive_source_dir)
 			else:
 				logger.error("archive_source_dir and archive_target_dir are identical.")
 		else:

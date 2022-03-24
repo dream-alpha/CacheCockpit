@@ -19,8 +19,8 @@
 # <http://www.gnu.org/licenses/>.
 
 
-from __init__ import _
 import os
+from __init__ import _
 from Debug import logger
 from Version import VERSION
 from Components.config import config
@@ -65,7 +65,6 @@ def autostart(reason, **kwargs):
 			logger.info("reason: %s", reason)
 			# session = kwargs["session"]
 			touchFile("/etc/enigma2/.cac")
-			FileCache.getInstance()
 			Recording()
 			initPluginSkinPath()
 			loadPluginSkin("skin.xml")

@@ -43,7 +43,7 @@ class Recording():
 		NavigationInstance.instance.RecordTimer.on_state_change.append(self.recordingEvent)
 		self.check4ActiveRecordings()
 
-	def initXMetaFile(self, timer):
+	def updateXMetaFile(self, timer):
 		ParserMetaFile(timer.Filename).updateXMeta({
 			"recording_start_time": int(time.time()),
 			"recording_stop_time": 0,
@@ -69,7 +69,7 @@ class Recording():
 					self.after_events.append(timer.afterEvent)
 					timer.afterEvent1 = timer.afterEvent
 					timer.afterEvent = AFTEREVENT.NONE
-				self.initXMetaFile(timer)
+				self.updateXMetaFile(timer)
 				DelayTimer(250, FileCache.getInstance().loadDatabaseFile, timer.Filename)
 
 			elif timer.state == TimerEntry.StateEnded or timer.state == TimerEntry.StateWaiting:
@@ -78,7 +78,7 @@ class Recording():
 					ParserMetaFile(timer.Filename).updateXMeta({"recording_stop_time": int(time.time())})
 					FileCache.getInstance().loadDatabaseFile(timer.Filename)
 					if Screens.Standby.inStandby and config.misc.standbyCounter.value == 1 and config.plugins.cachecockpit.archive_enable.value:
-						FileOpManager.getInstance().doFileOp(FILE_OP_MOVE, timer.Filename, config.plugins.cachecockpit.archive_target_dir.value, self.handleAfterEvent)
+						FileOpManager.getInstance().execFileOp(FILE_OP_MOVE, timer.Filename, config.plugins.cachecockpit.archive_target_dir.value, self.handleAfterEvent)
 						if hasattr(timer, "afterEvent1"):
 							timer.afterEvent = timer.afterEvent1
 
@@ -109,5 +109,5 @@ class Recording():
 			if timer.Filename and timer.isRunning() and not timer.justplay:
 				if not FileCache.getInstance().exists(timer.Filename):
 					logger.debug("loadDatabaseFile: %s", timer.Filename)
-					self.initXMetaFile(timer)
+					self.updateXMetaFile(timer)
 					FileCache.getInstance().loadDatabaseFile(timer.Filename)

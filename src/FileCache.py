@@ -34,7 +34,7 @@ from DelayTimer import DelayTimer
 from UnicodeUtils import convertToUtf8
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
 from FileCacheUtils import SQL_DB_NAME, FILE_TYPE_FILE, FILE_IDX_TYPE, FILE_TYPE_DIR, FILE_IDX_DIR, FILE_IDX_PATH, FILE_IDX_FILENAME, FILE_IDX_SIZE
-from FileOpUtils import FILE_OP_LOAD
+from FileOpUtils import FILE_OP_LOAD, FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY
 
 
 instance = None
@@ -95,9 +95,17 @@ class FileCache(FileCacheSQL):
 
 	### database row functions
 
+	def execFileOp(self, file_op, path, target_dir):
+		if file_op == FILE_OP_DELETE:
+			self.delete(path)
+		elif file_op == FILE_OP_COPY:
+			self.copy(path, target_dir)
+		elif file_op == FILE_OP_MOVE:
+			self.move(path, target_dir)
+
 	def exists(self, path):
 		afile = self.getFile(path)
-		logger.debug("path: %s, afile: %s", path, str(afile))
+		logger.debug("path: %s, afile: %s", path, afile)
 		return afile is not None
 
 	def delete(self, path):
@@ -122,6 +130,9 @@ class FileCache(FileCacheSQL):
 
 	def copy(self, src_path, dst_dir):
 		logger.debug("src_path: %s, dst_dir: %s", src_path, dst_dir)
+		if not self.exists(dst_dir):
+			afile = self.newDirData(dst_dir)
+			self.add(afile)
 		file_list = self.sqlSelect("path LIKE ?", [src_path + "%"])
 		for afile in file_list:
 			logger.debug("afile: %s", afile)
@@ -144,8 +155,8 @@ class FileCache(FileCacheSQL):
 
 	def getFile(self, path):
 		logger.debug("path: %s", path)
-		file_list = self.sqlSelect("path = ?", [path])
 		afile = None
+		file_list = self.sqlSelect("path = ?", [path])
 		if file_list:
 			if len(file_list) == 1:
 				afile = file_list[0]
@@ -159,11 +170,12 @@ class FileCache(FileCacheSQL):
 		all_dirs = []
 		for adir in dirs:
 			abookmark = MountCockpit.getInstance().getBookmark("MVC", adir)
-			movie_dir = adir[len(abookmark):]
-			for bookmark in self.bookmarks:
-				bdir = os.path.normpath(bookmark + movie_dir)
-				if bdir not in all_dirs:
-					all_dirs.append(bdir)
+			if abookmark:
+				movie_dir = adir[len(abookmark):]
+				for bookmark in self.bookmarks:
+					bdir = os.path.normpath(bookmark + movie_dir)
+					if bdir not in all_dirs:
+						all_dirs.append(bdir)
 		logger.debug("all_dirs: %s", all_dirs)
 		return all_dirs
 
@@ -186,6 +198,7 @@ class FileCache(FileCacheSQL):
 			binds = ",".join("?" * len(all_dirs))
 			where = "directory IN ({})".format(binds)
 			where += " AND file_name != 'trashcan'"
+			where += " AND file_name != '..'"
 			where += " AND file_type = %d" % FILE_TYPE_DIR
 			all_dir_list = self.sqlSelect(where, all_dirs)
 
@@ -264,6 +277,9 @@ class FileCache(FileCacheSQL):
 		elif os.path.isdir(path) or os.path.islink(path):
 			afile = self.newDirData(path)
 			self.add(afile)
+			if not MountCockpit.getInstance().isBookmark(path):
+				afile = self.newDirData(os.path.join(path, ".."))
+				self.add(afile)
 		if self.database_loaded:
 			self.onDatabaseChangedCallback()
 
