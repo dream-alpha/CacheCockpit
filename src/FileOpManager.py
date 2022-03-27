@@ -26,8 +26,7 @@ from Components.config import config
 from FileCache import FileCache
 from FileCacheUtils import FILE_TYPE_FILE, FILE_TYPE_DIR, FILE_IDX_TYPE, FILE_IDX_PATH
 from RecordingUtils import isRecording
-from FileOp import FileOp
-from FileOpUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY
+from FileOpUtils import FILE_OP_DELETE, FILE_OP_MOVE
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
 from FileOpManagerJob import FileOpManagerJob
 
@@ -47,13 +46,18 @@ class FileOpManager(FileOpManagerJob):
 			instance = FileOpManager()
 		return instance
 
-	def execFileOp(self, file_op, path, target_dir=None, fileop_callback=None):
+	def execFileManagerOp(self, file_op, path, target_dir=None, file_op_callback=None):
 		logger.debug("file_op: %s, path: %s, target_dir: %s", file_op, path, target_dir)
-		if target_dir and (file_op == FILE_OP_COPY or (file_op == FILE_OP_MOVE and not MountCockpit.getInstance().sameMountPoint("MVC", path, target_dir))):
-			self.addJob(file_op, path, target_dir, fileop_callback)
+		afile = FileCache.getInstance().getFile(path)
+		if afile[FILE_IDX_TYPE] == FILE_TYPE_DIR:
+			all_dirs = FileCache.getInstance().resolveVirtualDirs([path])
+			logger.debug("all_dirs: %s", all_dirs)
+			for adir in all_dirs:
+				if FileCache.getInstance().exists(adir):
+					logger.debug("adir: %s", adir)
+					self.addJob(file_op, adir, target_dir, file_op_callback)
 		else:
-			FileOp.getInstance().execFileOp(file_op, path, target_dir, fileop_callback)
-			FileCache.getInstance().execFileOp(file_op, path, target_dir)
+			self.addJob(file_op, path, target_dir, file_op_callback)
 
 	def archive(self, callback=None):
 
@@ -98,9 +102,9 @@ class FileOpManager(FileOpManagerJob):
 				if now > time.localtime(os.stat(path).st_mtime + 24 * 60 * 60 * retention):
 					logger.info("path: %s", path)
 					deleted_files += 1
-					self.execFileOp(FILE_OP_DELETE, path, None)
+					self.execFileManagerOp(FILE_OP_DELETE, path)
 			else:
 				logger.info("path: %s", path)
 				deleted_files += 1
-				self.execFileOp(FILE_OP_DELETE, path, None)
+				self.execFileManagerOp(FILE_OP_DELETE, path)
 		logger.info("deleted_files: %d", deleted_files)

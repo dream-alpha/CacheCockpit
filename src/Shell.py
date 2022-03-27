@@ -21,17 +21,15 @@
 
 from Debug import logger
 from enigma import eConsoleAppContainer
-from collections import deque
 from pipes import quote
 
 
 class Shell():
 
 	def __init__(self):
+		logger.info("...")
 		self.container = eConsoleAppContainer()
 		self.container_appClosed_conn = self.container.appClosed.connect(self.finished)
-		self.tasks = deque()
-		self.busy = False
 
 	def executeShell(self, task):
 		# Parameters:
@@ -39,44 +37,26 @@ class Shell():
 		# 	cmds = [cmd, cmd]
 		# 	callback = [function, arg1, arg2, ...]
 
-		logger.debug("task: %s", str(task))
-		self.tasks.append(task)
-		if not self.busy:
-			self.execute()
-		else:
-			logger.debug("busy")
-
-	def execute(self):
-		script, self.__callback = self.tasks.popleft()
-		if script:
-			script = '; '.join(script)
-			script = quote(script)
-			logger.debug("script: %s", script)
-			self.container.execute("sh -c " + script)
-			self.busy = True
+		logger.debug("task: %s", task)
+		script, self.__callback = task
+		script = '; '.join(script)
+		script = quote(script)
+		logger.debug("script: %s", script)
+		self.container.execute("sh -c " + script)
 
 	def finished(self, _retval=None):
-		logger.debug("retval = %s", str(_retval))
+		logger.debug("retval = %s", _retval)
 		self.busy = False
 		if self.__callback:
-			if isinstance(self.__callback, list):
-				function = self.__callback[0]
-				args = self.__callback[1:]
-				logger.debug("function: %s, args: %s", function, args)
-				if function:
-					if args:
-						function(*args)
-					else:
-						function()
+			function = self.__callback[0]
+			args = self.__callback[1:]
+			logger.debug("function: %s, args: %s", function, args)
+			if args:
+				function(*args)
 			else:
-				logger.error("callback must be a list")
-		if self.tasks:
-			logger.debug("more script(s) to execute")
-			self.execute()
+				function()
 
 	def abortShell(self):
 		logger.debug("...")
 		if self.container is not None:
 			self.container.kill()
-		self.tasks = deque()
-		self.busy = False

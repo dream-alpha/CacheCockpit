@@ -87,21 +87,20 @@ class FileCache(FileCacheSQL):
 		if self.database_changed_callback:
 			self.database_changed_callback()
 
-### cache functions
+	### row functions
+
+	def execCacheOp(self, file_op, src_path, dst_dir):
+		logger.info("file_op: %s, src_path: %s, dst_dir: %s", file_op, src_path, dst_dir)
+		if file_op == FILE_OP_DELETE:
+			self.delete(src_path)
+		elif file_op == FILE_OP_MOVE:
+			self.move(src_path, dst_dir)
+		elif file_op == FILE_OP_COPY:
+			self.copy(src_path, dst_dir)
 
 	def add(self, afile):
 		logger.info("afile: %s", afile)
 		self.sqlInsert(afile)
-
-	### database row functions
-
-	def execFileOp(self, file_op, path, target_dir):
-		if file_op == FILE_OP_DELETE:
-			self.delete(path)
-		elif file_op == FILE_OP_COPY:
-			self.copy(path, target_dir)
-		elif file_op == FILE_OP_MOVE:
-			self.move(path, target_dir)
 
 	def exists(self, path):
 		afile = self.getFile(path)
@@ -164,7 +163,9 @@ class FileCache(FileCacheSQL):
 				logger.error("not a single response: %s", str(file_list))
 		return afile
 
-	def __resolveVirtualDirs(self, dirs):
+	### database list functions
+
+	def resolveVirtualDirs(self, dirs):
 		logger.debug("dirs: %s", dirs)
 		self.bookmarks = MountCockpit.getInstance().getMountedBookmarks("MVC")
 		all_dirs = []
@@ -182,7 +183,7 @@ class FileCache(FileCacheSQL):
 	def getFileList(self, dirs, include_all_dirs=True):
 		logger.debug("dirs: %s", dirs)
 		file_list = []
-		all_dirs = self.__resolveVirtualDirs(dirs) if include_all_dirs else dirs
+		all_dirs = self.resolveVirtualDirs(dirs) if include_all_dirs else dirs
 		if all_dirs:
 			binds = ",".join("?" * len(all_dirs))
 			where = "directory IN ({})".format(binds)
@@ -193,7 +194,7 @@ class FileCache(FileCacheSQL):
 	def getDirList(self, dirs, include_all_dirs=True):
 		logger.debug("dirs: %s", dirs)
 		all_dir_list = []
-		all_dirs = self.__resolveVirtualDirs(dirs) if include_all_dirs else dirs
+		all_dirs = self.resolveVirtualDirs(dirs) if include_all_dirs else dirs
 		if all_dirs:
 			binds = ",".join("?" * len(all_dirs))
 			where = "directory IN ({})".format(binds)
@@ -214,7 +215,7 @@ class FileCache(FileCacheSQL):
 
 	def getCountSize(self, path):
 		total_count = total_size = 0
-		all_dirs = self.__resolveVirtualDirs([path])
+		all_dirs = self.resolveVirtualDirs([path])
 		for adir in all_dirs:
 			file_list = self.sqlSelect("path LIKE ? AND file_type = ?", [adir + "%", FILE_TYPE_FILE])
 			for afile in file_list:
@@ -233,6 +234,8 @@ class FileCache(FileCacheSQL):
 	def clearDatabase(self):
 		logger.debug("...")
 		self.sqlClearTable()
+
+	### database load functions
 
 	def getProgress(self):
 		logger.debug("files_total: %s, files_done: %s", self.files_total, self.files_done)
@@ -266,8 +269,6 @@ class FileCache(FileCacheSQL):
 			logger.debug("done.")
 			self.database_loaded = True
 			self.onDatabaseLoadedCallback()
-
-	### database load file/dir functions
 
 	def loadDatabaseFile(self, path):
 		logger.debug("path: %s", path)

@@ -78,9 +78,9 @@ class Recording():
 					ParserMetaFile(timer.Filename).updateXMeta({"recording_stop_time": int(time.time())})
 					FileCache.getInstance().loadDatabaseFile(timer.Filename)
 					if Screens.Standby.inStandby and config.misc.standbyCounter.value == 1 and config.plugins.cachecockpit.archive_enable.value:
-						FileOpManager.getInstance().execFileOp(FILE_OP_MOVE, timer.Filename, config.plugins.cachecockpit.archive_target_dir.value, self.handleAfterEvent)
 						if hasattr(timer, "afterEvent1"):
 							timer.afterEvent = timer.afterEvent1
+						FileOpManager.getInstance().execFileManagerOp(FILE_OP_MOVE, timer.Filename, config.plugins.cachecockpit.archive_target_dir.value, self.handleAfterEvent)
 
 	def handleAfterEvent(self, _file_op, _path, _target_dir, _error):
 		logger.debug("...")

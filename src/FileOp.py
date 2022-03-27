@@ -31,20 +31,10 @@ from Components.config import config
 from FileOpUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY, FILE_OP_ERROR_NONE, FILE_OP_ERROR_NO_DISKSPACE
 
 
-instance = None
-
-
 class FileOp(Shell):
 
 	def __init__(self):
 		Shell.__init__(self)
-
-	@staticmethod
-	def getInstance():
-		global instance
-		if instance is None:
-			instance = FileOp()
-		return instance
 
 	def abortFileOp(self):
 		logger.info("...")
