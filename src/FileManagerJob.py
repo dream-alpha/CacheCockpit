@@ -19,18 +19,17 @@
 # <http://www.gnu.org/licenses/>.
 
 
-import os
 from Debug import logger
-from FileCache import FileCache
 from Components.Task import Job, job_manager
-from FileOpManagerTask import FileOpManagerTask
-from FileOpUtils import FILE_OP_DELETE
+from FileManagerCache import FileManagerCache
+from FileManagerTask import FileManagerTask
+from FileManagerUtils import FILE_OP_DELETE, FILE_IDX_NAME
 
 
-class FileOpManagerJob():
+class FileManagerJob(FileManagerCache):
 
 	def __init__(self):
-		return
+		FileManagerCache.__init__(self)
 
 	def getLockList(self):
 		lock_list = {}
@@ -50,9 +49,8 @@ class FileOpManagerJob():
 			if ajob.name == job.name:
 				add = False
 				break
-		logger.debug("add: %s", add)
 		if add:
-			FileOpManagerTask(job, file_op, path, target_dir, self.callbackJob, file_op_callback)
+			FileManagerTask(job, file_op, path, target_dir, self.callbackJob, file_op_callback)
 			job_manager.AddJob(job)
 
 	def callbackJob(self, file_op, path, target_dir, error, file_op_callback):
@@ -60,7 +58,7 @@ class FileOpManagerJob():
 		if error:
 			job_manager.active_jobs = []
 		else:
-			FileCache.getInstance().execCacheOp(file_op, path, target_dir)
+			self.execCacheOp(file_op, path, target_dir)
 		if file_op_callback:
 			try:
 				file_op_callback(file_op, path, target_dir, error)
@@ -83,7 +81,7 @@ class FileOpManagerJob():
 		progress = 0
 		if jobs:
 			job = jobs[0]
-			file_name = os.path.basename(job.name)
+			file_name = self.getFile(job.name)[FILE_IDX_NAME]
 			file_op = job.file_op
 			progress = job.progress
 		return len(jobs), file_name, file_op, progress

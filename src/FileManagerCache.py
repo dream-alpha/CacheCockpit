@@ -23,7 +23,7 @@ import os
 import time
 from Debug import logger
 from Components.config import config
-from FileCacheSQL import FileCacheSQL
+from FileManagerCacheSQL import FileManagerCacheSQL
 from datetime import datetime
 from ParserEitFile import ParserEitFile
 from ParserMetaFile import ParserMetaFile
@@ -33,21 +33,18 @@ from FileUtils import readFile, deleteFile
 from DelayTimer import DelayTimer
 from UnicodeUtils import convertToUtf8
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
-from FileCacheUtils import SQL_DB_NAME, FILE_TYPE_FILE, FILE_IDX_TYPE, FILE_TYPE_DIR, FILE_IDX_DIR, FILE_IDX_PATH, FILE_IDX_FILENAME, FILE_IDX_SIZE
-from FileOpUtils import FILE_OP_LOAD, FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY
+from FileManagerUtils import SQL_DB_NAME, FILE_TYPE_FILE, FILE_IDX_TYPE, FILE_TYPE_DIR, FILE_IDX_DIR, FILE_IDX_PATH, FILE_IDX_FILENAME, FILE_IDX_SIZE
+from FileManagerUtils import FILE_OP_LOAD, FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY
 
 
-instance = None
-
-
-class FileCache(FileCacheSQL):
+class FileManagerCache(FileManagerCacheSQL):
 
 	def __init__(self):
 		logger.info("...")
 		self.database_loaded = False
 		self.database_loaded_callback = None
 		self.database_changed_callback = None
-		FileCacheSQL.__init__(self)
+		FileManagerCacheSQL.__init__(self)
 		self.epglang = config.plugins.moviecockpit.epglang.value
 		self.bookmarks = MountCockpit.getInstance().getMountedBookmarks("MVC")
 		if not os.path.exists(SQL_DB_NAME) or os.path.exists("/etc/enigma2/.cachecockpit"):
@@ -60,13 +57,6 @@ class FileCache(FileCacheSQL):
 		self.files_total = 0
 		self.files_done = 0
 		self.file_name = ""
-
-	@staticmethod
-	def getInstance():
-		global instance
-		if instance is None:
-			instance = FileCache()
-		return instance
 
 	def onDatabaseLoaded(self, callback=None):
 		logger.info("...")
@@ -234,6 +224,7 @@ class FileCache(FileCacheSQL):
 	def clearDatabase(self):
 		logger.debug("...")
 		self.sqlClearTable()
+		self.database_loaded = False
 
 	### database load functions
 

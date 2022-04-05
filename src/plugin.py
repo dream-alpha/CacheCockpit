@@ -25,14 +25,13 @@ from Debug import logger
 from Version import VERSION
 from Components.config import config
 from Plugins.Plugin import PluginDescriptor
-from FileCache import FileCache
 from Debug import createLogFile
 from FileUtils import deleteFile, touchFile
 from ConfigInit import ConfigInit
 from ConfigScreen import ConfigScreen
 import Screens.Standby
 import Standby
-from FileOpManager import FileOpManager
+from FileManager import FileManager
 from Recording import Recording
 from SkinUtils import initPluginSkinPath, loadPluginSkin
 
@@ -46,16 +45,16 @@ def enteringStandby(reason):
 	logger.info("reason: %s, count: %d", reason, config.misc.standbyCounter.value)
 	if Screens.Standby.inStandby and config.misc.standbyCounter.value == 1 and config.plugins.cachecockpit.archive_enable.value:
 		Screens.Standby.inStandby.onClose.append(leavingStandby)
-		FileOpManager.getInstance().archive(None)
+		FileManager.getInstance().archive(None)
 
 
 def leavingStandby():
 	logger.info("...")
 	if config.misc.standbyCounter.value == 1 and config.plugins.cachecockpit.archive_enable.value:
-		file_op_manager = FileOpManager.getInstance()
-		jobs = len(file_op_manager.getPendingJobs())
-		if jobs:
-			file_op_manager.cancelJobs()
+		file_manager = FileManager.getInstance()
+		jobs = file_manager.getPendingJobs()
+		if len(jobs):
+			file_manager.cancelJobs()
 
 
 def autostart(reason, **kwargs):
@@ -71,7 +70,7 @@ def autostart(reason, **kwargs):
 	elif reason == 1:  # shutdown
 		logger.info("--- shutdown")
 		if not os.path.exists("/etc/enigma2/.cachecockpit"):
-			FileCache.getInstance().closeDatabase()
+			FileManager.getInstance().closeDatabase()
 		deleteFile("/etc/enigma2/.cac")
 	else:
 		logger.info("reason not handled: %s", reason)

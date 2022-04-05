@@ -28,11 +28,10 @@ import NavigationInstance
 from timer import TimerEntry
 from DelayTimer import DelayTimer
 from ParserMetaFile import ParserMetaFile
-from FileCache import FileCache
-from FileOpManager import FileOpManager
+from FileManager import FileManager
 import Screens.Standby
 from RecordTimer import AFTEREVENT
-from FileOpUtils import FILE_OP_MOVE
+from FileManagerUtils import FILE_OP_MOVE
 
 
 class Recording():
@@ -70,21 +69,21 @@ class Recording():
 					timer.afterEvent1 = timer.afterEvent
 					timer.afterEvent = AFTEREVENT.NONE
 				self.updateXMetaFile(timer)
-				DelayTimer(250, FileCache.getInstance().loadDatabaseFile, timer.Filename)
+				DelayTimer(250, FileManager.getInstance().loadDatabaseFile, timer.Filename)
 
 			elif timer.state == TimerEntry.StateEnded or timer.state == TimerEntry.StateWaiting:
 				logger.debug("REC END for: %s, afterEvent: %s", timer.Filename, timer.afterEvent)
 				if os.path.exists(timer.Filename):
 					ParserMetaFile(timer.Filename).updateXMeta({"recording_stop_time": int(time.time())})
-					FileCache.getInstance().loadDatabaseFile(timer.Filename)
+					FileManager.getInstance().loadDatabaseFile(timer.Filename)
 					if Screens.Standby.inStandby and config.misc.standbyCounter.value == 1 and config.plugins.cachecockpit.archive_enable.value:
 						if hasattr(timer, "afterEvent1"):
 							timer.afterEvent = timer.afterEvent1
-						FileOpManager.getInstance().execFileManagerOp(FILE_OP_MOVE, timer.Filename, config.plugins.cachecockpit.archive_target_dir.value, self.handleAfterEvent)
+						FileManager.getInstance().execFileManagerOp(FILE_OP_MOVE, timer.Filename, config.plugins.cachecockpit.archive_target_dir.value, self.handleAfterEvent)
 
 	def handleAfterEvent(self, _file_op, _path, _target_dir, _error):
 		logger.debug("...")
-		jobs = len(FileOpManager.getInstance().getPendingJobs())
+		jobs = len(FileManager.getInstance().getPendingJobs())
 		if jobs <= 1:
 			do_shutdown = False
 			for after_event in self.after_events:
@@ -107,7 +106,7 @@ class Recording():
 		logger.debug("...")
 		for timer in NavigationInstance.instance.RecordTimer.timer_list:
 			if timer.Filename and timer.isRunning() and not timer.justplay:
-				if not FileCache.getInstance().exists(timer.Filename):
+				if not FileManager.getInstance().exists(timer.Filename):
 					logger.debug("loadDatabaseFile: %s", timer.Filename)
 					self.updateXMetaFile(timer)
-					FileCache.getInstance().loadDatabaseFile(timer.Filename)
+					FileManager.getInstance().loadDatabaseFile(timer.Filename)

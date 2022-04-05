@@ -18,14 +18,23 @@
 # For more information on the GNU General Public License see:
 # <http://www.gnu.org/licenses/>.
 
+# file manager ops
+FILE_OP_DELETE = 1
+FILE_OP_MOVE = 2
+FILE_OP_COPY = 3
+FILE_OP_LOAD = 4 # loadDatabaseCache
 
+# file manager errors
+FILE_OP_ERROR_NONE = 0
+FILE_OP_ERROR_NO_DISKSPACE = 1
+FILE_OP_ERROR_ABORT = 2
+
+# database file
 SQL_DB_NAME = "/etc/enigma2/cachecockpit.db"
-
 
 # file types
 FILE_TYPE_FILE = 1
 FILE_TYPE_DIR = 2
-
 
 # file indexes
 FILE_IDX_DIR = 0

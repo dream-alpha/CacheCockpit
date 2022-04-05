@@ -23,37 +23,36 @@ import os
 import time
 from Debug import logger
 from Components.config import config
-from FileCache import FileCache
-from FileCacheUtils import FILE_TYPE_FILE, FILE_TYPE_DIR, FILE_IDX_TYPE, FILE_IDX_PATH
+from FileManagerUtils import FILE_TYPE_FILE, FILE_TYPE_DIR, FILE_IDX_TYPE, FILE_IDX_PATH
 from RecordingUtils import isRecording
-from FileOpUtils import FILE_OP_DELETE, FILE_OP_MOVE
+from FileManagerUtils import FILE_OP_DELETE, FILE_OP_MOVE
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
-from FileOpManagerJob import FileOpManagerJob
+from FileManagerJob import FileManagerJob
 
 
 instance = None
 
 
-class FileOpManager(FileOpManagerJob):
+class FileManager(FileManagerJob):
 
 	def __init__(self):
-		FileOpManagerJob.__init__(self)
+		FileManagerJob.__init__(self)
 
 	@staticmethod
 	def getInstance():
 		global instance
 		if instance is None:
-			instance = FileOpManager()
+			instance = FileManager()
 		return instance
 
 	def execFileManagerOp(self, file_op, path, target_dir=None, file_op_callback=None):
 		logger.debug("file_op: %s, path: %s, target_dir: %s", file_op, path, target_dir)
-		afile = FileCache.getInstance().getFile(path)
+		afile = self.getFile(path)
 		if afile[FILE_IDX_TYPE] == FILE_TYPE_DIR:
-			all_dirs = FileCache.getInstance().resolveVirtualDirs([path])
+			all_dirs = self.resolveVirtualDirs([path])
 			logger.debug("all_dirs: %s", all_dirs)
 			for adir in all_dirs:
-				if FileCache.getInstance().exists(adir):
+				if self.exists(adir):
 					logger.debug("adir: %s", adir)
 					self.addJob(file_op, adir, target_dir, file_op_callback)
 		else:
@@ -63,8 +62,8 @@ class FileOpManager(FileOpManagerJob):
 
 		def addDirectory(adir):
 			logger.info("adir: %s", adir)
-			file_list = FileCache.getInstance().getFileList([adir], False)
-			file_list += FileCache.getInstance().getDirList([adir], False)
+			file_list = self.getFileList([adir], False)
+			file_list += self.getDirList([adir], False)
 			for afile in file_list:
 				if afile[FILE_IDX_TYPE] == FILE_TYPE_FILE and not isRecording(afile[FILE_IDX_PATH]):
 					logger.debug("path: %s", afile[FILE_IDX_PATH])
@@ -94,8 +93,8 @@ class FileOpManager(FileOpManagerJob):
 		now = time.localtime()
 		trashcan_dir = os.path.join(MountCockpit.getInstance().getHomeDir("MVC"), "trashcan")
 		logger.debug("trashcan_dir: %s", trashcan_dir)
-		file_list = FileCache.getInstance().getFileList([trashcan_dir])
-		file_list += FileCache.getInstance().getDirList([trashcan_dir])
+		file_list = self.getFileList([trashcan_dir])
+		file_list += self.getDirList([trashcan_dir])
 		for afile in file_list:
 			path = afile[FILE_IDX_PATH]
 			if os.path.exists(path):

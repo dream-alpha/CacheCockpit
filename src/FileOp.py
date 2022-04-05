@@ -25,10 +25,8 @@ from pipes import quote
 from MovieCoverUtils import getCoverPath, getCoverTargetDir
 from Shell import Shell
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
-from Plugins.SystemPlugins.MountCockpit.MountUtils import getBookmarkSpaceInfo
-from FileCache import FileCache
 from Components.config import config
-from FileOpUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY, FILE_OP_ERROR_NONE, FILE_OP_ERROR_NO_DISKSPACE
+from FileManagerUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY, FILE_OP_ERROR_NONE
 
 
 class FileOp(Shell):
@@ -49,30 +47,12 @@ class FileOp(Shell):
 		if file_op == FILE_OP_DELETE:
 			cmds = self.__execFileDelete(path)
 		elif file_op == FILE_OP_MOVE:
-			free = size = 0
-			if os.path.dirname(path) != target_dir and MountCockpit.getInstance().getMountPoint("MVC", path) != MountCockpit.getInstance().getMountPoint("MVC", target_dir):
-				_used_percent, _used, free = getBookmarkSpaceInfo(MountCockpit.getInstance().getBookmark("MVC", target_dir))
-				_count, size = FileCache.getInstance().getCountSize(path)
-			logger.debug("FILE_OP_MOVE: size: %s, free: %s", size, free)
-			if free * 0.8 >= size:
-				cmds = self.__execFileMove(path, target_dir)
-			else:
-				logger.info("FILE_OP_MOVE: not enough space left: size: %s, free: %s", size, free)
-				error = FILE_OP_ERROR_NO_DISKSPACE
+			cmds = self.__execFileMove(path, target_dir)
 		elif file_op == FILE_OP_COPY:
-			free = size = 0
-			if os.path.dirname(path) != target_dir:
-				_used_percent, _used, free = getBookmarkSpaceInfo(MountCockpit.getInstance().getBookmark("MVC", target_dir))
-				_count, size = FileCache.getInstance().getCountSize(path)
-			logger.debug("FILE_OP_COPY: size: %s, free: %s", size, free)
-			if free * 0.8 >= size:
-				cmds = self.__execFileCopy(path, target_dir)
-			else:
-				logger.info("FILE_OP_COPY: not enough space left: size: %s, free: %s", size, free)
-				error = FILE_OP_ERROR_NO_DISKSPACE
+			cmds = self.__execFileCopy(path, target_dir)
 		if cmds:
 			logger.debug("cmds: %s", cmds)
-			if file_op == FILE_OP_MOVE and MountCockpit.getInstance().getMountPoint("MVC", path) != MountCockpit.getInstance().getMountPoint("MVC", target_dir)\
+			if file_op == FILE_OP_MOVE and not MountCockpit.getInstance().sameMountPoint("MVC", path, target_dir) \
 				or file_op == FILE_OP_COPY and os.path.dirname(path) != target_dir:
 				# wait for cmds execution
 				self.executeShell((cmds, callback))

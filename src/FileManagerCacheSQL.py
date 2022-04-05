@@ -21,10 +21,10 @@
 
 import sqlite3 as sqlite
 from Debug import logger
-from FileCacheUtils import SQL_DB_NAME, FILE_IDX_CUTS
+from FileManagerUtils import SQL_DB_NAME, FILE_IDX_CUTS
 
 
-class FileCacheSQL():
+class FileManagerCacheSQL():
 
 	RECORDING_COLUMNS = [
 		"directory TEXT", "file_type INTEGER", "path TEXT", "file_name TEXT", "file_ext TEXT", "name TEXT",

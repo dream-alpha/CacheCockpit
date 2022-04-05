@@ -34,19 +34,16 @@ class Shell():
 	def executeShell(self, task):
 		# Parameters:
 		# task = (cmds, callback)
-		# 	cmds = [cmd, cmd]
+		# 	cmds = [cmd, cmd, ...]
 		# 	callback = [function, arg1, arg2, ...]
 
-		logger.debug("task: %s", task)
+		logger.info("task: %s", task)
 		script, self.__callback = task
-		script = '; '.join(script)
-		script = quote(script)
-		logger.debug("script: %s", script)
+		script = quote('; '.join(script))
 		self.container.execute("sh -c " + script)
 
 	def finished(self, _retval=None):
-		logger.debug("retval = %s", _retval)
-		self.busy = False
+		logger.info("retval = %s", _retval)
 		if self.__callback:
 			function = self.__callback[0]
 			args = self.__callback[1:]
@@ -57,6 +54,6 @@ class Shell():
 				function()
 
 	def abortShell(self):
-		logger.debug("...")
+		logger.info("...")
 		if self.container is not None:
 			self.container.kill()

@@ -25,19 +25,22 @@ from Debug import logger
 from enigma import eTimer
 from Components.Task import Task
 from FileOp import FileOp
-from FileOpUtils import FILE_OP_MOVE, FILE_OP_COPY, FILE_OP_DELETE, FILE_OP_ERROR_NONE, FILE_OP_ERROR_ABORT
+from FileManagerCache import FileManagerCache
+from FileManagerUtils import FILE_OP_MOVE, FILE_OP_COPY, FILE_OP_DELETE, FILE_OP_ERROR_NONE, FILE_OP_ERROR_ABORT, FILE_OP_ERROR_NO_DISKSPACE
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
+from Plugins.SystemPlugins.MountCockpit.MountUtils import getBookmarkSpaceInfo
 
 
 ACTIVITY_TIMER_DELAY = 1000
 file_ops = {FILE_OP_DELETE: _("Deleting"), FILE_OP_MOVE: _("Moving"), FILE_OP_COPY: _("Copying")}
 
 
-class FileOpManagerTask(Task, FileOp):
+class FileManagerTask(Task, FileManagerCache, FileOp):
 
 	def __init__(self, job, file_op, path, target_dir, job_callback, file_op_callback):
 		logger.info("file_op = %s, path = %s, target_dir = %s", file_op, path, target_dir)
 		Task.__init__(self, job, _("File task") + ": " + file_ops[file_op])
+		FileManagerCache.__init__(self)
 		FileOp.__init__(self)
 		self.job = job
 		self.file_op = file_op
@@ -67,6 +70,17 @@ class FileOpManagerTask(Task, FileOp):
 		self.finish()
 
 	def run(self, callback):
+
+		def checkFreeSpace(path, target_dir):
+			error = FILE_OP_ERROR_NONE
+			_used_percent, _used, free = getBookmarkSpaceInfo(MountCockpit.getInstance().getBookmark("MVC", target_dir))
+			_count, size = self.getCountSize(path)
+			logger.debug("size: %s, free: %s", size, free)
+			if free * 0.8 < size:
+				logger.info("not enough space left: size: %s, free: %s", size, free)
+				error = FILE_OP_ERROR_NO_DISKSPACE
+			return error
+
 		logger.debug("callback: %s", callback)
 		self.callback = callback
 		self.error = FILE_OP_ERROR_NONE
@@ -74,13 +88,26 @@ class FileOpManagerTask(Task, FileOp):
 		self.source_size = 0
 		if os.path.exists(self.path):
 			self.source_size = os.path.getsize(self.path)
-
 		self.updateProgress()
-		if self.file_op == FILE_OP_MOVE and not MountCockpit.getInstance().sameMountPoint("MVC", self.path, self.target_dir):
-			logger.debug("replace move by copy")
-			self.execFileOp(FILE_OP_COPY, self.path, self.target_dir, self.execFileOpCallback1)
-		else:
+
+		if self.file_op == FILE_OP_DELETE:
 			self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback1)
+		elif self.file_op == FILE_OP_MOVE:
+			if not MountCockpit.getInstance().sameMountPoint("MVC", self.path, self.target_dir):
+				self.error = checkFreeSpace(self.path, self.target_dir)
+				if not self.error:
+					logger.debug("replace move by copy")
+					self.execFileOp(FILE_OP_COPY, self.path, self.target_dir, self.execFileOpCallback1)
+				else:
+					self.execFileOpCallback2(self.file_op, self.path, self.target_dir, self.error)
+			else:
+				self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback1)
+		elif self.file_op == FILE_OP_COPY:
+			self.error = checkFreeSpace(self.path, self.target_dir)
+			if not self.error:
+				self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback1)
+			else:
+				self.execFileOpCallback2(self.file_op, self.path, self.target_dir, self.error)
 
 	def execFileOpCallback1(self, _file_op, path, target_dir, error):
 		logger.debug("file_op: %s, path: %s, target_dir: %s", _file_op, path, target_dir)
