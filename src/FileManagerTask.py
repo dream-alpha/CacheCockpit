@@ -55,17 +55,6 @@ class FileManagerTask(Task, FileManagerCache, FileOp):
 		logger.debug("path: %s", self.path)
 		self.abortFileOp()
 		self.error = FILE_OP_ERROR_ABORT
-		if os.path.exists(self.path):
-			target_path = os.path.join(self.target_dir, os.path.basename(self.path))
-			if os.path.exists(target_path):
-				self.execFileOp(FILE_OP_DELETE, target_path, None, self.abortFileOpCallback)
-			else:
-				self.abortFileOpCallback(self.file_op, self.path, self.target_dir, self.error)
-		else:
-			self.abortFileOpCallback(self.file_op, self.path, self.target_dir, self.error)
-
-	def abortFileOpCallback(self, _file_op, _path, _target_dir, _error):
-		logger.debug("file_op: %s, path: %s", _file_op, _path)
 		self.activity_timer.stop()
 		self.finish()
 
@@ -81,7 +70,7 @@ class FileManagerTask(Task, FileManagerCache, FileOp):
 				error = FILE_OP_ERROR_NO_DISKSPACE
 			return error
 
-		logger.debug("callback: %s", callback)
+		logger.info("self.file_op: %s, self.path: %s, self.target_dir: %s, callback: %s", self.file_op, self.path, self.target_dir, callback)
 		self.callback = callback
 		self.error = FILE_OP_ERROR_NONE
 		self.activity_timer.start(ACTIVITY_TIMER_DELAY)
@@ -91,42 +80,25 @@ class FileManagerTask(Task, FileManagerCache, FileOp):
 		self.updateProgress()
 
 		if self.file_op == FILE_OP_DELETE:
-			self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback1)
+			self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback)
 		elif self.file_op == FILE_OP_MOVE:
 			if not MountCockpit.getInstance().sameMountPoint("MVC", self.path, self.target_dir):
 				self.error = checkFreeSpace(self.path, self.target_dir)
 				if not self.error:
-					logger.debug("replace move by copy")
-					self.execFileOp(FILE_OP_COPY, self.path, self.target_dir, self.execFileOpCallback1)
+					self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback)
 				else:
-					self.execFileOpCallback2(self.file_op, self.path, self.target_dir, self.error)
+					self.execFileOpCallback(self.file_op, self.path, self.target_dir, self.error)
 			else:
-				self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback1)
+				self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback)
 		elif self.file_op == FILE_OP_COPY:
 			self.error = checkFreeSpace(self.path, self.target_dir)
 			if not self.error:
-				self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback1)
+				self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback)
 			else:
-				self.execFileOpCallback2(self.file_op, self.path, self.target_dir, self.error)
+				self.execFileOpCallback(self.file_op, self.path, self.target_dir, self.error)
 
-	def execFileOpCallback1(self, _file_op, path, target_dir, error):
-		logger.debug("file_op: %s, path: %s, target_dir: %s", _file_op, path, target_dir)
-		self.error = error
-		target_path = None
-		if target_dir:
-			target_path = os.path.join(target_dir, os.path.basename(path))
-		if target_path and self.file_op == FILE_OP_MOVE and os.path.exists(target_path) and os.path.getsize(path) == os.path.getsize(target_path):
-			if os.path.realpath(path) != os.path.realpath(target_path):
-				logger.debug("delete after copy instead of move")
-				self.execFileOp(FILE_OP_DELETE, path, None, self.execFileOpCallback2)
-			else:
-				logger.error("trying to delete source file: %s, target_path: %s", path, target_path)
-				self.execFileOpCallback2(self.file_op, self.path, self.target_dir, self.error)
-		else:
-			self.execFileOpCallback2(self.file_op, self.path, self.target_dir, self.error)
-
-	def execFileOpCallback2(self, _file_op, _path, _target_dir, _error):
-		logger.debug("...")
+	def execFileOpCallback(self, _file_op, _path, _target_dir, _error):
+		logger.info("...")
 		self.activity_timer.stop()
 		self.finish()
 
@@ -143,6 +115,7 @@ class FileManagerTask(Task, FileManagerCache, FileOp):
 		self.setProgress(progress)
 
 	def afterRun(self):
-		logger.debug("path: %s", self.path)
+		logger.info("self.file_op: %s, self.path: %s, self.target_dir: %s", self.file_op, self.path, self.target_dir)
+		logger.info("self.job_callback: %s", self.job_callback)
 		if self.job_callback:
 			self.job_callback(self.file_op, self.path, self.target_dir, self.error, self.file_op_callback)

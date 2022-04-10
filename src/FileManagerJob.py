@@ -43,18 +43,11 @@ class FileManagerJob(FileManagerCache):
 		logger.info("file_op: %s, path: %s, target_dir: %s, file_op_callback: %s", file_op, path, target_dir, file_op_callback)
 		job = Job(path)
 		job.file_op = file_op
-		jobs = job_manager.getPendingJobs()
-		add = True
-		for ajob in jobs:
-			if ajob.name == job.name:
-				add = False
-				break
-		if add:
-			FileManagerTask(job, file_op, path, target_dir, self.callbackJob, file_op_callback)
-			job_manager.AddJob(job)
+		FileManagerTask(job, file_op, path, target_dir, self.callbackJob, file_op_callback)
+		job_manager.AddJob(job)
 
 	def callbackJob(self, file_op, path, target_dir, error, file_op_callback):
-		logger.debug("path: %s, error: %s, file_op_callback: %s", path, error, file_op_callback)
+		logger.info("file_op: %s, path: %s, target_dir: %s, error: %s, file_op_callback: %s", file_op, path, target_dir, error, file_op_callback)
 		if error:
 			job_manager.active_jobs = []
 		else:
@@ -66,7 +59,7 @@ class FileManagerJob(FileManagerCache):
 				logger.info("file_op_callback: %s, exception: %s", file_op_callback, e)
 
 	def cancelJobs(self):
-		logger.debug("...")
+		logger.info("...")
 		job_manager.active_jobs = []
 		if job_manager.active_job:
 			job_manager.active_job.abort()

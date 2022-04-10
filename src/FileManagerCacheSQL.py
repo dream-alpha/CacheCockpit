@@ -36,6 +36,7 @@ class FileManagerCacheSQL():
 		logger.info("...")
 		self.sql_conn = sqlite.connect(SQL_DB_NAME)
 		self.sqlCreateTable()
+		self.setCaseSensitiveLike()
 
 	def sqlCreateTable(self):
 		columns = ", ".join(column for column in self.RECORDING_COLUMNS)
@@ -46,6 +47,10 @@ class FileManagerCacheSQL():
 
 	def sqlClearTable(self):
 		self.cursor.execute("DELETE FROM recordings")
+		self.sql_conn.commit()
+
+	def setCaseSensitiveLike(self):
+		self.cursor.execute("PRAGMA case_sensitive_like = true")
 		self.sql_conn.commit()
 
 	def sqlSelect(self, where, args=None):

@@ -23,7 +23,7 @@ import os
 import time
 from Debug import logger
 from Components.config import config
-from FileManagerUtils import FILE_TYPE_FILE, FILE_TYPE_DIR, FILE_IDX_TYPE, FILE_IDX_PATH
+from FileManagerUtils import FILE_TYPE_FILE, FILE_TYPE_DIR, FILE_IDX_TYPE, FILE_IDX_PATH, FILE_OP_ERROR
 from RecordingUtils import isRecording
 from FileManagerUtils import FILE_OP_DELETE, FILE_OP_MOVE
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
@@ -46,24 +46,24 @@ class FileManager(FileManagerJob):
 		return instance
 
 	def execFileManagerOp(self, file_op, path, target_dir=None, file_op_callback=None):
-		logger.debug("file_op: %s, path: %s, target_dir: %s", file_op, path, target_dir)
+		logger.info("file_op: %s, path: %s, target_dir: %s", file_op, path, target_dir)
 		afile = self.getFile(path)
-		if afile[FILE_IDX_TYPE] == FILE_TYPE_DIR:
-			all_dirs = self.resolveVirtualDirs([path])
-			logger.debug("all_dirs: %s", all_dirs)
-			for adir in all_dirs:
-				if self.exists(adir):
-					logger.debug("adir: %s", adir)
-					self.addJob(file_op, adir, target_dir, file_op_callback)
-		else:
+		if afile:
 			self.addJob(file_op, path, target_dir, file_op_callback)
+		else:
+			try:
+				error = FILE_OP_ERROR
+				if file_op_callback:
+					file_op_callback(file_op, path, target_dir, error)
+			except Exception as e:
+				logger.error("exception: %s", e)
 
 	def archive(self, callback=None):
 
 		def addDirectory(adir):
 			logger.info("adir: %s", adir)
-			file_list = self.getFileList([adir], False)
-			file_list += self.getDirList([adir], False)
+			file_list = self.getFileList([adir])
+			file_list += self.getDirList([adir])
 			for afile in file_list:
 				if afile[FILE_IDX_TYPE] == FILE_TYPE_FILE and not isRecording(afile[FILE_IDX_PATH]):
 					logger.debug("path: %s", afile[FILE_IDX_PATH])

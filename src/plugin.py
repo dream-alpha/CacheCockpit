@@ -53,7 +53,7 @@ def leavingStandby():
 	if config.misc.standbyCounter.value == 1 and config.plugins.cachecockpit.archive_enable.value:
 		file_manager = FileManager.getInstance()
 		jobs = file_manager.getPendingJobs()
-		if len(jobs):
+		if jobs:
 			file_manager.cancelJobs()
 
 

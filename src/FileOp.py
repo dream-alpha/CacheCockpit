@@ -36,40 +36,40 @@ class FileOp(Shell):
 
 	def abortFileOp(self):
 		logger.info("...")
-		self.abortShell()
+		self.abortShell(self.abortFileOpCallback)
+
+	def abortFileOpCallback(self, file_op, path, target_dir, error):
+		logger.info("...")
+		if file_op in [FILE_OP_MOVE, FILE_OP_COPY]:
+			target_path = os.path.join(target_dir, os.path.basename(path))
+			self.execFileOp(FILE_OP_DELETE, target_path, target_dir, self.exec_file_op_callback)
+		else:
+			self.exec_file_op_callback(file_op, path, target_dir, error)
 
 	def execFileOp(self, file_op, path, target_dir, exec_file_op_callback=None):
 		self.exec_file_op_callback = exec_file_op_callback
 		error = FILE_OP_ERROR_NONE
 		cmds = []
-		callback = [self.exec_file_op_callback, file_op, path, target_dir, error]
-		logger.info("file_op: %s, path: %s, target_dir: %s", file_op, path, target_dir)
+		logger.info("file_op: %s, path: %s, target_dir: %s, exec_file_op_callback: %s", file_op, path, target_dir, exec_file_op_callback)
 		if file_op == FILE_OP_DELETE:
 			cmds = self.__execFileDelete(path)
 		elif file_op == FILE_OP_MOVE:
 			cmds = self.__execFileMove(path, target_dir)
 		elif file_op == FILE_OP_COPY:
 			cmds = self.__execFileCopy(path, target_dir)
+		logger.info("cmds: %s", cmds)
 		if cmds:
-			logger.debug("cmds: %s", cmds)
 			if file_op == FILE_OP_MOVE and not MountCockpit.getInstance().sameMountPoint("MVC", path, target_dir) \
-				or file_op == FILE_OP_COPY and os.path.dirname(path) != target_dir:
+				or file_op == FILE_OP_COPY and os.path.dirname(path) != target_dir \
+				or file_op == FILE_OP_DELETE:
 				# wait for cmds execution
-				self.executeShell((cmds, callback))
+				self.executeShell(cmds, self.exec_file_op_callback, file_op, path, target_dir, error)
 			else:
 				# don't wait for cmds execution
-				self.executeShell((cmds, None))
-				if callback:
-					function = callback[0]
-					args = callback[1:]
-					logger.debug("function: %s, args: %s", function, args)
-					try:
-						function(*args)
-					except Exception as e:
-						logger.debug("function: %s, exception: %s", function, e)
-		else:
-			if self.exec_file_op_callback:
+				self.executeShell(cmds, None, file_op, path, target_dir, error)
 				self.exec_file_op_callback(file_op, path, target_dir, error)
+		else:
+			self.exec_file_op_callback(file_op, path, target_dir, error)
 
 	def __execFileDelete(self, path):
 		logger.info("path: %s", path)
@@ -89,7 +89,7 @@ class FileOp(Shell):
 			cmds.append("rm -f " + quote(path))
 			cover_target_dir, _backdrop_target_dir, _info_target_dir = getCoverTargetDir(path)
 			cmds.append("rm -f " + quote(cover_target_dir))
-		logger.debug("cmds: %s", cmds)
+		logger.info("cmds: %s", cmds)
 		return cmds
 
 	def __execFileMove(self, path, target_dir):
@@ -100,12 +100,18 @@ class FileOp(Shell):
 			path = os.path.splitext(path)[0]
 			if "trashcan" in target_dir:
 				cmds.append("touch " + quote(path) + ".*")
+			cmds.append("mkdir -p " + quote(target_dir))
+			target_path = os.path.join(target_dir, os.path.basename(path))
+			cmds.append("rm " + quote(target_path))
 			cmds.append("mv " + quote(path) + ".*" + " " + quote(target_dir))
 		elif os.path.isdir(path) or os.path.islink(path):
 			if "trashcan" in target_dir:
 				cmds.append("touch " + quote(path))
+			cmds.append("mkdir -p " + quote(target_dir))
+			target_path = os.path.join(target_dir, os.path.basename(path))
+			cmds.append("rm -rf " + quote(target_path))
 			cmds.append("mv " + quote(path) + " " + quote(target_dir))
-		logger.debug("cmds: %s", cmds)
+		logger.info("cmds: %s", cmds)
 		return cmds
 
 	def __execFileCopy(self, path, target_dir):
@@ -114,10 +120,12 @@ class FileOp(Shell):
 		if os.path.isfile(path):
 			cmds += self.__execCoverOp("cp -dp", path, target_dir)
 			path = os.path.splitext(path)[0]
+			cmds.append("mkdir -p " + quote(target_dir))
 			cmds.append("cp -dp " + quote(path) + ".* " + quote(target_dir))
 		elif os.path.isdir(path) or os.path.islink(path):
+			cmds.append("mkdir -p " + quote(target_dir))
 			cmds.append("cp -a " + quote(path) + " " + quote(target_dir))
-		logger.debug("cmds: %s", cmds)
+		logger.info("cmds: %s", cmds)
 		return cmds
 
 	def __execCoverOp(self, op, path, target_dir):
@@ -149,7 +157,7 @@ class FileOp(Shell):
 		cmds.append(op + " " + quote(backdrop_path) + " " + quote(backdrop_target_dir))
 		cmds.append(op + " " + quote(info_path) + " " + quote(info_target_dir))
 
-		logger.debug("cmds: %s", cmds)
+		logger.info("cmds: %s", cmds)
 		return cmds
 
 	def __changeFileOwner(self, path, target_dir):
@@ -159,4 +167,5 @@ class FileOp(Shell):
 			tfile = quote(target_dir + "/owner_test")
 			sfile = quote(path) + ".*"
 			cmds.append("touch %s;ls -l %s | while read flags i owner group crap;do chown $owner:$group %s;done;rm %s" % (tfile, tfile, sfile, tfile))
+		logger.info("cmds: %s", cmds)
 		return cmds

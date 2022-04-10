@@ -155,47 +155,30 @@ class FileManagerCache(FileManagerCacheSQL):
 
 	### database list functions
 
-	def resolveVirtualDirs(self, dirs):
-		logger.debug("dirs: %s", dirs)
-		self.bookmarks = MountCockpit.getInstance().getMountedBookmarks("MVC")
-		all_dirs = []
-		for adir in dirs:
-			abookmark = MountCockpit.getInstance().getBookmark("MVC", adir)
-			if abookmark:
-				movie_dir = adir[len(abookmark):]
-				for bookmark in self.bookmarks:
-					bdir = os.path.normpath(bookmark + movie_dir)
-					if bdir not in all_dirs:
-						all_dirs.append(bdir)
-		logger.debug("all_dirs: %s", all_dirs)
-		return all_dirs
-
-	def getFileList(self, dirs, include_all_dirs=True):
+	def getFileList(self, dirs):
 		logger.debug("dirs: %s", dirs)
 		file_list = []
-		all_dirs = self.resolveVirtualDirs(dirs) if include_all_dirs else dirs
-		if all_dirs:
-			binds = ",".join("?" * len(all_dirs))
+		if dirs:
+			binds = ",".join("?" * len(dirs))
 			where = "directory IN ({})".format(binds)
 			where += " AND file_type = %d" % FILE_TYPE_FILE
-			file_list = self.sqlSelect(where, all_dirs)
+			file_list = self.sqlSelect(where, dirs)
 		return file_list
 
-	def getDirList(self, dirs, include_all_dirs=True):
+	def getDirList(self, dirs):
 		logger.debug("dirs: %s", dirs)
-		all_dir_list = []
-		all_dirs = self.resolveVirtualDirs(dirs) if include_all_dirs else dirs
-		if all_dirs:
-			binds = ",".join("?" * len(all_dirs))
+		dirs_list = []
+		if dirs:
+			binds = ",".join("?" * len(dirs))
 			where = "directory IN ({})".format(binds)
 			where += " AND file_name != 'trashcan'"
 			where += " AND file_name != '..'"
 			where += " AND file_type = %d" % FILE_TYPE_DIR
-			all_dir_list = self.sqlSelect(where, all_dirs)
+			dirs_list = self.sqlSelect(where, dirs)
 
 		file_name_list = []
 		dir_list = []
-		for afile in all_dir_list:
+		for afile in dirs_list:
 			file_name = afile[FILE_IDX_FILENAME]
 			if file_name not in file_name_list:
 				file_name_list.append(file_name)
@@ -205,7 +188,7 @@ class FileManagerCache(FileManagerCacheSQL):
 
 	def getCountSize(self, path):
 		total_count = total_size = 0
-		all_dirs = self.resolveVirtualDirs([path])
+		all_dirs = MountCockpit.getInstance().getVirtualDirs("MVC", [path])
 		for adir in all_dirs:
 			file_list = self.sqlSelect("path LIKE ? AND file_type = ?", [adir + "%", FILE_TYPE_FILE])
 			for afile in file_list:

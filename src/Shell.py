@@ -31,29 +31,20 @@ class Shell():
 		self.container = eConsoleAppContainer()
 		self.container_appClosed_conn = self.container.appClosed.connect(self.finished)
 
-	def executeShell(self, task):
-		# Parameters:
-		# task = (cmds, callback)
-		# 	cmds = [cmd, cmd, ...]
-		# 	callback = [function, arg1, arg2, ...]
-
-		logger.info("task: %s", task)
-		script, self.__callback = task
+	def executeShell(self, script, callback, *args):
+		logger.info("script: %s, callback: %s, args: %s", script, callback, args)
 		script = quote('; '.join(script))
+		self.__callback = callback
+		self.args = args
 		self.container.execute("sh -c " + script)
 
 	def finished(self, _retval=None):
 		logger.info("retval = %s", _retval)
 		if self.__callback:
-			function = self.__callback[0]
-			args = self.__callback[1:]
-			logger.debug("function: %s, args: %s", function, args)
-			if args:
-				function(*args)
-			else:
-				function()
+			self.__callback(*self.args)
 
-	def abortShell(self):
+	def abortShell(self, callback):
 		logger.info("...")
 		if self.container is not None:
-			self.container.kill()
+			self.__callback = callback
+			self.container.sendCtrlC()

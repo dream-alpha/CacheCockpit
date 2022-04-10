@@ -28,6 +28,7 @@ FILE_OP_LOAD = 4 # loadDatabaseCache
 FILE_OP_ERROR_NONE = 0
 FILE_OP_ERROR_NO_DISKSPACE = 1
 FILE_OP_ERROR_ABORT = 2
+FILE_OP_ERROR = 100
 
 # database file
 SQL_DB_NAME = "/etc/enigma2/cachecockpit.db"
