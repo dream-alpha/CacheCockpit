@@ -28,23 +28,37 @@ class Shell():
 
 	def __init__(self):
 		logger.info("...")
-		self.container = eConsoleAppContainer()
-		self.container_appClosed_conn = self.container.appClosed.connect(self.finished)
+		self.container1 = eConsoleAppContainer()
+		self.container1_appClosed_conn = self.container1.appClosed.connect(self.finished1)
+		self.container2 = eConsoleAppContainer()
+		self.container2_appClosed_conn = self.container2.appClosed.connect(self.finished2)
 
-	def executeShell(self, script, callback, *args):
-		logger.info("script: %s, callback: %s, args: %s", script, callback, args)
-		script = quote('; '.join(script))
+	def executeShell(self, scripts, callback, *args):
+		logger.info("scripts: %s, callback: %s, args: %s", scripts, callback, args)
+		self.__abort = False
+		script1 = quote('; '.join(scripts[0]))
+		self.script2 = quote('; '.join(scripts[1]))
+		self.script3 = quote('; '.join(scripts[2]))
 		self.__callback = callback
 		self.args = args
-		self.container.execute("sh -c " + script)
+		self.container1.execute("sh -c " + script1)
 
-	def finished(self, _retval=None):
-		logger.info("retval = %s", _retval)
+	def finished1(self, retval=None):
+		logger.info("retval = %s", retval)
+		if not self.__abort and self.script2:
+			self.container2.execute("sh -c " + self.script2)
+		elif self.__abort and self.script3:
+			self.container2.execute("sh -c " + self.script3)
+		else:
+			self.finished2()
+
+	def finished2(self, retval=None):
+		logger.info("retval = %s", retval)
 		if self.__callback:
 			self.__callback(*self.args)
 
-	def abortShell(self, callback):
+	def abortShell(self):
 		logger.info("...")
-		if self.container is not None:
-			self.__callback = callback
-			self.container.sendCtrlC()
+		self.__abort = True
+		if self.container1 is not None and self.container1.running():
+			self.container1.sendCtrlC()

@@ -55,8 +55,6 @@ class FileManagerTask(Task, FileManagerCache, FileOp):
 		logger.debug("path: %s", self.path)
 		self.abortFileOp()
 		self.error = FILE_OP_ERROR_ABORT
-		self.activity_timer.stop()
-		self.finish()
 
 	def run(self, callback):
 
