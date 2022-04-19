@@ -36,24 +36,24 @@ class Shell():
 	def executeShell(self, scripts, callback, *args):
 		logger.info("scripts: %s, callback: %s, args: %s", scripts, callback, args)
 		self.__abort = False
-		script1 = quote('; '.join(scripts[0]))
-		self.script2 = quote('; '.join(scripts[1]))
-		self.script3 = quote('; '.join(scripts[2]))
+		script1 = '; '.join(scripts[0])
+		self.script2 = '; '.join(scripts[1])
+		self.script3 = '; '.join(scripts[2])
 		self.__callback = callback
 		self.args = args
-		self.container1.execute("sh -c " + script1)
+		self.container1.execute("sh -c " + quote(script1))
 
 	def finished1(self, retval=None):
 		logger.info("retval = %s", retval)
 		if not self.__abort and self.script2:
-			self.container2.execute("sh -c " + self.script2)
+			self.container2.execute("sh -c " + quote(self.script2))
 		elif self.__abort and self.script3:
-			self.container2.execute("sh -c " + self.script3)
+			self.container2.execute("sh -c " + quote(self.script3))
 		else:
 			self.finished2()
 
 	def finished2(self, retval=None):
-		logger.info("retval = %s", retval)
+		logger.info("retval = %s, self.__callback: %s", retval, self.__callback)
 		if self.__callback:
 			self.__callback(*self.args)
 

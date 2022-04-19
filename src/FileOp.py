@@ -22,11 +22,11 @@
 import os
 from Debug import logger
 from pipes import quote
-from MovieCoverUtils import getCoverPath, getCoverTargetDir
+from MovieCoverUtils import getCoverPath
 from Shell import Shell
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
-from Components.config import config
 from FileManagerUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY, FILE_OP_ERROR_NONE
+from ServiceUtils import ALL_VIDEO
 
 
 class FileOp(Shell):
@@ -41,60 +41,52 @@ class FileOp(Shell):
 	def execFileOp(self, file_op, path, target_dir, exec_file_op_callback=None):
 		self.exec_file_op_callback = exec_file_op_callback
 		error = FILE_OP_ERROR_NONE
-		cmds = [[], [], []] # first execution script, second execution script, abort script
+		cmds = [[], [], []] # first execution script, second execution script, abort cleanup script
 		wait_for_completion = True
 		logger.info("file_op: %s, path: %s, target_dir: %s, exec_file_op_callback: %s", file_op, path, target_dir, exec_file_op_callback)
 		if file_op == FILE_OP_DELETE:
-			cmds[0] = self.__execFileDelete(path)
+			cmds[0] = self.__execFileDelete(path, delete_cover=True)
 		elif file_op == FILE_OP_MOVE:
 			if MountCockpit.getInstance().sameMountPoint("MVC", path, target_dir):
 				cmds[0] = self.__execFileMove(path, target_dir)
 				wait_for_completion = False
 			else:
 				cmds[0] = self.__execFileCopy(path, target_dir)
-				cmds[1] = self.__execFileDelete(path)
-				cmds[2] = self.__execFileCleanup(os.path.join(target_dir, os.path.basename(path)))
+				cmds[1] = self.__execFileDelete(path, delete_cover=False)
+				cmds[2] = self.__execFileDelete(os.path.join(target_dir, os.path.basename(path)), force=True)
 		elif file_op == FILE_OP_COPY:
 			cmds[0] = self.__execFileCopy(path, target_dir)
-			cmds[2] = self.__execFileCleanup(os.path.join(target_dir, os.path.basename(path)))
+			cmds[2] = self.__execFileDelete(os.path.join(target_dir, os.path.basename(path)), force=True)
 		logger.info("wait_for_completion: %s, cmds: %s", wait_for_completion, cmds)
 		if cmds:
 			if wait_for_completion:
-				# wait for cmds completion
 				self.executeShell(cmds, self.exec_file_op_callback, file_op, path, target_dir, error)
 			else:
-				# don't wait for cmds completion
 				self.executeShell(cmds, None, file_op, path, target_dir, error)
 				self.exec_file_op_callback(file_op, path, target_dir, error)
 		else:
 			self.exec_file_op_callback(file_op, path, target_dir, error)
 
-	def __execFileCleanup(self, path):
-		logger.info("path: %s", path)
+	def __execFileDelete(self, path, delete_cover=False, force=False):
+		logger.info("path: %s, delete_cover: %s, forc: %s", path, delete_cover, force)
 		cmds = []
-		cover_path, backdrop_path, info_path = getCoverPath(path)
-		cmds.append("rm -f %s" % quote(cover_path))
-		cmds.append("rm -f %s" % quote(backdrop_path))
-		cmds.append("rm -f %s" % quote(info_path))
-		cmds.append("rm -f %s.*" % quote(os.path.splitext(path)[0]))
-		logger.info("cmds: %s", cmds)
-		return cmds
-
-	def __execFileDelete(self, path):
-		logger.info("path: %s", path)
-		cmds = []
-		if os.path.isfile(path):
-			cover_path, backdrop_path, info_path = getCoverPath(path)
-			cmds.append("rm -f %s" % quote(cover_path))
-			cmds.append("rm -f %s" % quote(backdrop_path))
-			cmds.append("rm -f %s" % quote(info_path))
+		if force:
 			cmds.append("rm -f %s.*" % quote(os.path.splitext(path)[0]))
-		elif os.path.isdir(path):
-			cmds.append("rm -rf %s" % quote(path))
-			cover_target_dir, _backdrop_target_dir, _info_target_dir = getCoverTargetDir(path)
-			cmds.append("rm -rf %s" % quote(cover_target_dir))
-		elif os.path.islink(path):
-			cmds.append("rm -f %s" % quote(path))
+		else:
+			if os.path.isfile(path):
+				if delete_cover:
+					cmds.append("rm -f %s.*" % quote(os.path.splitext(getCoverPath(path)[0])[0]))
+				cmds.append("rm -f %s.*" % quote(os.path.splitext(path)[0]))
+			elif os.path.isdir(path):
+				if delete_cover:
+					for root, _dirs, files in os.walk(path):
+						for file in files:
+							fname = os.path.join(root, file)
+							if os.path.splitext(fname)[1] in ALL_VIDEO:
+								cmds.append("rm -f %s.*" % quote(os.path.splitext(getCoverPath(fname)[0])[0]))
+				cmds.append("rm -rf %s" % quote(path))
+			elif os.path.islink(path):
+				cmds.append("rm -f %s" % quote(path))
 		logger.info("cmds: %s", cmds)
 		return cmds
 
@@ -102,7 +94,6 @@ class FileOp(Shell):
 		logger.info("path: %s, target_dir: %s", path, target_dir)
 		cmds = self.__changeFileOwner(path, target_dir)
 		if os.path.isfile(path):
-			cmds += self.__execCoverOp("mv", path, target_dir)
 			if "trashcan" in target_dir:
 				cmds.append("touch %s.*" % quote(os.path.splitext(path)[0]))
 			cmds.append("mkdir -p %s" % quote(target_dir))
@@ -121,7 +112,6 @@ class FileOp(Shell):
 		logger.info("path: %s, target_dir: %s", path, target_dir)
 		cmds = self.__changeFileOwner(path, target_dir)
 		if os.path.isfile(path):
-			cmds += self.__execCoverOp("cp -dp", path, target_dir)
 			cmds.append("mkdir -p %s" % quote(target_dir))
 			cmds.append("cp -dp %s.* %s" % (quote(os.path.splitext(path)[0]), quote(target_dir)))
 		elif os.path.isdir(path):
@@ -129,38 +119,6 @@ class FileOp(Shell):
 			cmds.append("cp -a %s %s" % (quote(path), quote(target_dir)))
 		elif os.path.islink(path):
 			cmds.append("cp -dp %s %s" % (quote(path), quote(target_dir)))
-		logger.info("cmds: %s", cmds)
-		return cmds
-
-	def __execCoverOp(self, op, path, target_dir):
-		logger.info("op: %s, path: %s, target_dir: %s", op, path, target_dir)
-		cmds = []
-		cover_path, backdrop_path, info_path = getCoverPath(path)
-		cover_target_dir, backdrop_target_dir, info_target_dir = getCoverTargetDir(target_dir)
-
-		logger.debug("cover_path: %s, cover_target_dir: %s", cover_path, cover_target_dir)
-		logger.debug("backdrop_path: %s, backdrop_target_dir: %s", backdrop_path, backdrop_target_dir)
-		logger.debug("info_path: %s, info_target_dir: %s", info_path, info_target_dir)
-
-		for adir in [target_dir, cover_target_dir, backdrop_target_dir, info_target_dir]:
-			if not os.path.isdir(adir):
-				cmds.append("mkdir -p %s" % quote(adir))
-
-		if "trashcan" in target_dir:
-			trashcan_dir = target_dir
-			if config.plugins.moviecockpit.cover_flash.value:
-				bookmark = MountCockpit.getInstance().getBookmark("MVC", target_dir)
-				trashcan_dir = os.path.normpath(config.plugins.moviecockpit.cover_bookmark.value + "/" + bookmark + "/trashcan")
-			if not os.path.isdir(trashcan_dir):
-				cmds.append("mkdir -p %s" % quote(trashcan_dir))
-			cover_target_dir = trashcan_dir
-			backdrop_target_dir = trashcan_dir
-			info_target_dir = trashcan_dir
-
-		cmds.append("%s %s %s" % (op, quote(cover_path), quote(cover_target_dir)))
-		cmds.append("%s %s %s" % (op, quote(backdrop_path), quote(backdrop_target_dir)))
-		cmds.append("%s %s %s" % (op, quote(info_path), quote(info_target_dir)))
-
 		logger.info("cmds: %s", cmds)
 		return cmds
 

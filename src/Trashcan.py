@@ -19,21 +19,33 @@
 # <http://www.gnu.org/licenses/>.
 
 
-import os
 from Debug import logger
 from Components.config import config
+from DelayTimer import DelayTimer
+from FileManager import FileManager
+from Tools.BoundFunction import boundFunction
 
 
-def getCoverPath(path):
-	logger.debug("path: %s", path)
-	cover_bookmark = config.plugins.moviecockpit.cover_bookmark.value
-	base = os.path.splitext(path)[0]
-	cover_path = base + ".jpg"
-	backdrop_path = base + ".backdrop.jpg"
-	info_path = base + ".txt"
-	if config.plugins.moviecockpit.cover_flash.value:
-		cover_path = os.path.normpath(cover_bookmark + "/" + os.path.basename(cover_path))
-		backdrop_path = os.path.normpath(cover_bookmark + "/" + os.path.basename(backdrop_path))
-		info_path = os.path.normpath(cover_bookmark + "/" + os.path.basename(info_path))
-	logger.debug("cover_path: %s, backdrop_path: %s, info_path: %s", cover_path, backdrop_path, info_path)
-	return cover_path, backdrop_path, info_path
+instance = None
+
+
+class Trashcan():
+
+	def __init__(self):
+		self.__schedulePurge()
+
+	@staticmethod
+	def getInstance():
+		global instance
+		if instance is None:
+			instance = Trashcan()
+		return instance
+
+	def __schedulePurge(self):
+		if config.plugins.moviecockpit.trashcan_enable.value and config.plugins.moviecockpit.trashcan_clean.value:
+			# next cleanup in 24 hours
+			seconds = 24 * 60 * 60
+			DelayTimer(1000 * seconds, self.__schedulePurge)
+			# execute cleanup
+			DelayTimer(10000, boundFunction(FileManager.getInstance().purgeTrashcan, config.plugins.moviecockpit.trashcan_retention.value))
+			logger.info("next trashcan cleanup in %s minutes", seconds / 60)

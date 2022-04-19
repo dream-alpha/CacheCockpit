@@ -36,6 +36,7 @@ SQL_DB_NAME = "/etc/enigma2/cachecockpit.db"
 # file types
 FILE_TYPE_FILE = 1
 FILE_TYPE_DIR = 2
+FILE_TYPE_LINK = 3
 
 # file indexes
 FILE_IDX_DIR = 0

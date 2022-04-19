@@ -33,7 +33,7 @@ from FileUtils import readFile, deleteFile
 from DelayTimer import DelayTimer
 from UnicodeUtils import convertToUtf8
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
-from FileManagerUtils import SQL_DB_NAME, FILE_TYPE_FILE, FILE_IDX_TYPE, FILE_TYPE_DIR, FILE_IDX_DIR, FILE_IDX_PATH, FILE_IDX_FILENAME, FILE_IDX_SIZE
+from FileManagerUtils import SQL_DB_NAME, FILE_TYPE_FILE, FILE_IDX_TYPE, FILE_TYPE_DIR, FILE_TYPE_LINK, FILE_IDX_DIR, FILE_IDX_PATH, FILE_IDX_FILENAME, FILE_IDX_SIZE
 from FileManagerUtils import FILE_OP_LOAD, FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY
 
 
@@ -173,7 +173,7 @@ class FileManagerCache(FileManagerCacheSQL):
 			where = "directory IN ({})".format(binds)
 			where += " AND file_name != 'trashcan'"
 			where += " AND file_name != '..'"
-			where += " AND file_type = %d" % FILE_TYPE_DIR
+			where += " AND file_type != %d" % FILE_TYPE_FILE
 			dirs_list = self.sqlSelect(where, dirs)
 
 		file_name_list = []
@@ -249,8 +249,11 @@ class FileManagerCache(FileManagerCacheSQL):
 		if os.path.isfile(path):
 			afile = self.newFileData(path)
 			self.add(afile)
-		elif os.path.isdir(path) or os.path.islink(path):
-			afile = self.newDirData(path)
+		else:
+			if os.path.islink(path):
+				afile = self.newLinkData(path)
+			elif os.path.isdir(path):
+				afile = self.newDirData(path)
 			self.add(afile)
 			if not MountCockpit.getInstance().isBookmark(path):
 				afile = self.newDirData(os.path.join(path, ".."))
@@ -264,6 +267,13 @@ class FileManagerCache(FileManagerCacheSQL):
 		size = length = event_start_time = recording_start_time = recording_stop_time = 0
 		name = convertToUtf8(os.path.basename(path))
 		return (os.path.dirname(path), FILE_TYPE_DIR, path, os.path.basename(path), ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags)
+
+	def newLinkData(self, path):
+		logger.info("path: %s", path)
+		ext, short_description, extended_description, service_reference, cuts, tags = "", "", "", "", "", ""
+		size = length = event_start_time = recording_start_time = recording_stop_time = 0
+		name = convertToUtf8(os.path.basename(path))
+		return (os.path.dirname(path), FILE_TYPE_LINK, path, os.path.basename(path), ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags)
 
 	def newFileData(self, path):
 
@@ -368,11 +378,7 @@ class FileManagerCache(FileManagerCacheSQL):
 					ext = os.path.splitext(path)[1]
 					if ext in ALL_VIDEO:
 						load_list.append(path)
-				elif os.path.isdir(path):
-					load_list.append(path)
-					load_list += self.__getDirLoadList(path)
-				elif os.path.islink(path):
-					path = os.path.realpath(path)
+				else:
 					load_list.append(path)
 					load_list += self.__getDirLoadList(path)
 		else:

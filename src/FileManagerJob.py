@@ -24,6 +24,7 @@ from Components.Task import Job, job_manager
 from FileManagerCache import FileManagerCache
 from FileManagerTask import FileManagerTask
 from FileManagerUtils import FILE_OP_DELETE, FILE_IDX_NAME
+from DelayTimer import DelayTimer
 
 
 class FileManagerJob(FileManagerCache):
@@ -54,7 +55,8 @@ class FileManagerJob(FileManagerCache):
 			self.execCacheOp(file_op, path, target_dir)
 		if file_op_callback:
 			try:
-				file_op_callback(file_op, path, target_dir, error)
+				logger.info("calling file_op_callback")
+				DelayTimer(10, file_op_callback, file_op, path, target_dir, error)
 			except Exception as e:
 				logger.info("file_op_callback: %s, exception: %s", file_op_callback, e)
 

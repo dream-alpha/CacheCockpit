@@ -32,6 +32,7 @@ from ConfigScreen import ConfigScreen
 import Screens.Standby
 import Standby
 from FileManager import FileManager
+from Trashcan import Trashcan
 from Recording import Recording
 from SkinUtils import initPluginSkinPath, loadPluginSkin
 
@@ -65,6 +66,7 @@ def autostart(reason, **kwargs):
 			# session = kwargs["session"]
 			touchFile("/etc/enigma2/.cac")
 			Recording()
+			Trashcan.getInstance()
 			initPluginSkinPath()
 			loadPluginSkin("skin.xml")
 	elif reason == 1:  # shutdown
