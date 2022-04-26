@@ -29,7 +29,8 @@ class FileManagerCacheSQL():
 	RECORDING_COLUMNS = [
 		"directory TEXT", "file_type INTEGER", "path TEXT", "file_name TEXT", "file_ext TEXT", "name TEXT",
 		"event_start_time INTEGER", "recording_start_time INTEGER", "recording_stop_time INTEGER", "length INTEGER",
-		"description TEXT", "extended_description TEXT", "service_reference TEXT", "size INTEGER", "cuts BLOB", "tags TEXT"
+		"description TEXT", "extended_description TEXT", "service_reference TEXT", "size INTEGER", "cuts BLOB",
+		"tags TEXT", "cover BLOB"
 	]
 
 	def __init__(self):
@@ -70,7 +71,7 @@ class FileManagerCacheSQL():
 	def sqlInsert(self, afile):
 		afile = list(afile)
 		afile[FILE_IDX_CUTS] = sqlite.Binary(afile[FILE_IDX_CUTS])
-		binds = ",".join("?" * len(afile))
+		binds = ",".join("?" * len(self.RECORDING_COLUMNS))
 		self.cursor.execute("""REPLACE INTO recordings VALUES ({})""".format(binds), afile)
 		self.sql_conn.commit()
 

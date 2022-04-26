@@ -22,6 +22,7 @@
 from Debug import logger
 from enigma import eConsoleAppContainer
 from pipes import quote
+from DelayTimer import DelayTimer
 
 
 class Shell():
@@ -33,15 +34,21 @@ class Shell():
 		self.container2 = eConsoleAppContainer()
 		self.container2_appClosed_conn = self.container2.appClosed.connect(self.finished2)
 
-	def executeShell(self, scripts, callback, *args):
+	def executeShell(self, scripts, callback, wait_for_completion, *args):
 		logger.info("scripts: %s, callback: %s, args: %s", scripts, callback, args)
 		self.__abort = False
 		script1 = '; '.join(scripts[0])
 		self.script2 = '; '.join(scripts[1])
 		self.script3 = '; '.join(scripts[2])
 		self.__callback = callback
+		self.wait_for_completion = wait_for_completion
 		self.args = args
-		self.container1.execute("sh -c " + quote(script1))
+		if scripts[0]:
+			self.container1.execute("sh -c " + quote(script1))
+			if not wait_for_completion:
+				DelayTimer(10, callback, *args)
+		else:
+			DelayTimer(10, callback, *args)
 
 	def finished1(self, retval=None):
 		logger.info("retval = %s", retval)
@@ -55,7 +62,8 @@ class Shell():
 	def finished2(self, retval=None):
 		logger.info("retval = %s, self.__callback: %s", retval, self.__callback)
 		if self.__callback:
-			self.__callback(*self.args)
+			if self.wait_for_completion:
+				self.__callback(*self.args)
 
 	def abortShell(self):
 		logger.info("...")

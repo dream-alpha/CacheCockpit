@@ -1,4 +1,5 @@
 #!/bin/sh
+rm /etc/enigma2/cachecockpit.db
 touch /etc/enigma2/.cachecockpit
 
 echo "***********************************"

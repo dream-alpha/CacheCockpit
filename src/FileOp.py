@@ -22,11 +22,9 @@
 import os
 from Debug import logger
 from pipes import quote
-from MovieCoverUtils import getCoverPath
 from Shell import Shell
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
 from FileManagerUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY, FILE_OP_ERROR_NONE
-from ServiceUtils import ALL_VIDEO
 
 
 class FileOp(Shell):
@@ -45,45 +43,30 @@ class FileOp(Shell):
 		wait_for_completion = True
 		logger.info("file_op: %s, path: %s, target_dir: %s, exec_file_op_callback: %s", file_op, path, target_dir, exec_file_op_callback)
 		if file_op == FILE_OP_DELETE:
-			cmds[0] = self.__execFileDelete(path, delete_cover=True)
+			cmds[0] = self.__execFileDelete(path)
 		elif file_op == FILE_OP_MOVE:
 			if MountCockpit.getInstance().sameMountPoint("MVC", path, target_dir):
 				cmds[0] = self.__execFileMove(path, target_dir)
 				wait_for_completion = False
 			else:
 				cmds[0] = self.__execFileCopy(path, target_dir)
-				cmds[1] = self.__execFileDelete(path, delete_cover=False)
+				cmds[1] = self.__execFileDelete(path)
 				cmds[2] = self.__execFileDelete(os.path.join(target_dir, os.path.basename(path)), force=True)
 		elif file_op == FILE_OP_COPY:
 			cmds[0] = self.__execFileCopy(path, target_dir)
 			cmds[2] = self.__execFileDelete(os.path.join(target_dir, os.path.basename(path)), force=True)
 		logger.info("wait_for_completion: %s, cmds: %s", wait_for_completion, cmds)
-		if cmds:
-			if wait_for_completion:
-				self.executeShell(cmds, self.exec_file_op_callback, file_op, path, target_dir, error)
-			else:
-				self.executeShell(cmds, None, file_op, path, target_dir, error)
-				self.exec_file_op_callback(file_op, path, target_dir, error)
-		else:
-			self.exec_file_op_callback(file_op, path, target_dir, error)
+		self.executeShell(cmds, self.exec_file_op_callback, wait_for_completion, file_op, path, target_dir, error)
 
-	def __execFileDelete(self, path, delete_cover=False, force=False):
-		logger.info("path: %s, delete_cover: %s, forc: %s", path, delete_cover, force)
+	def __execFileDelete(self, path, force=False):
+		logger.info("path: %s, force: %s", path, force)
 		cmds = []
 		if force:
 			cmds.append("rm -f %s.*" % quote(os.path.splitext(path)[0]))
 		else:
 			if os.path.isfile(path):
-				if delete_cover:
-					cmds.append("rm -f %s.*" % quote(os.path.splitext(getCoverPath(path)[0])[0]))
 				cmds.append("rm -f %s.*" % quote(os.path.splitext(path)[0]))
 			elif os.path.isdir(path):
-				if delete_cover:
-					for root, _dirs, files in os.walk(path):
-						for file in files:
-							fname = os.path.join(root, file)
-							if os.path.splitext(fname)[1] in ALL_VIDEO:
-								cmds.append("rm -f %s.*" % quote(os.path.splitext(getCoverPath(fname)[0])[0]))
 				cmds.append("rm -rf %s" % quote(path))
 			elif os.path.islink(path):
 				cmds.append("rm -f %s" % quote(path))

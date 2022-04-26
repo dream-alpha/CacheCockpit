@@ -89,7 +89,7 @@ class FileManagerCache(FileManagerCacheSQL):
 			self.copy(src_path, dst_dir)
 
 	def add(self, afile):
-		logger.info("afile: %s", afile)
+		#logger.info("afile: %s", afile)
 		self.sqlInsert(afile)
 
 	def exists(self, path):
@@ -252,9 +252,10 @@ class FileManagerCache(FileManagerCacheSQL):
 		else:
 			if os.path.islink(path):
 				afile = self.newLinkData(path)
+				self.add(afile)
 			elif os.path.isdir(path):
 				afile = self.newDirData(path)
-			self.add(afile)
+				self.add(afile)
 			if not MountCockpit.getInstance().isBookmark(path):
 				afile = self.newDirData(os.path.join(path, ".."))
 				self.add(afile)
@@ -263,17 +264,17 @@ class FileManagerCache(FileManagerCacheSQL):
 
 	def newDirData(self, path):
 		logger.info("path: %s", path)
-		ext, short_description, extended_description, service_reference, cuts, tags = "", "", "", "", "", ""
+		ext, short_description, extended_description, service_reference, cuts, tags, cover = "", "", "", "", "", "", ""
 		size = length = event_start_time = recording_start_time = recording_stop_time = 0
 		name = convertToUtf8(os.path.basename(path))
-		return (os.path.dirname(path), FILE_TYPE_DIR, path, os.path.basename(path), ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags)
+		return (os.path.dirname(path), FILE_TYPE_DIR, path, os.path.basename(path), ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags, cover)
 
 	def newLinkData(self, path):
 		logger.info("path: %s", path)
-		ext, short_description, extended_description, service_reference, cuts, tags = "", "", "", "", "", ""
+		ext, short_description, extended_description, service_reference, cuts, tags, cover = "", "", "", "", "", "", ""
 		size = length = event_start_time = recording_start_time = recording_stop_time = 0
 		name = convertToUtf8(os.path.basename(path))
-		return (os.path.dirname(path), FILE_TYPE_LINK, path, os.path.basename(path), ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags)
+		return (os.path.dirname(path), FILE_TYPE_LINK, path, os.path.basename(path), ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags, cover)
 
 	def newFileData(self, path):
 
@@ -362,8 +363,10 @@ class FileManagerCache(FileManagerCacheSQL):
 		else:
 			length = ptsToSeconds(getCutListLength(unpackCutList(cuts)))
 
+		cover = readFile(file_path + ".jpg")
+
 		logger.debug("path: %s, name: %s, event_start_time %s, length: %s", path, name, datetime.fromtimestamp(event_start_time), length)
-		return (file_dir, FILE_TYPE_FILE, path, file_name, ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags)
+		return (file_dir, FILE_TYPE_FILE, path, file_name, ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags, cover)
 
 	### database load list functions
 

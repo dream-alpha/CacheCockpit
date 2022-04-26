@@ -167,8 +167,6 @@ class ConfigInit():
 		config.plugins.moviecockpit                           = ConfigSubsection()
 		config.plugins.moviecockpit.timer_autoclean           = ConfigYesNo(default=False)
 		config.plugins.moviecockpit.cover_auto_download       = ConfigYesNo(default=False)
-		config.plugins.moviecockpit.cover_flash               = ConfigYesNo(default=False)
-		config.plugins.moviecockpit.cover_bookmark            = ConfigDirectory(default="/data/movie")
 		config.plugins.moviecockpit.cover_fallback            = ConfigYesNo(default=True)
 		config.plugins.moviecockpit.cover_replace_existing    = ConfigYesNo(default=False)
 		config.plugins.moviecockpit.cover_language            = ConfigSelection(default=language.getActiveLanguage()[:2], choices=auto_lang_list)
