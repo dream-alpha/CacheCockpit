@@ -183,7 +183,7 @@ class ParserEitFile():
 			if ISO_639_language_code == lang:
 				self.short_event_descriptor.append(short_event_description)
 				self.name_event_descriptor.append(name_event_description)
-			if (ISO_639_language_code == self.prev1_ISO_639_language_code) or (self.prev1_ISO_639_language_code == "x"):
+			if self.prev1_ISO_639_language_code in [ISO_639_language_code, "x"]:
 				self.short_event_descriptor_multi.append(short_event_description)
 				self.name_event_descriptor_multi.append(name_event_description)
 			else:
@@ -208,7 +208,7 @@ class ParserEitFile():
 					extended_event_description += data[i]
 			if ISO_639_language_code == lang:
 				self.extended_event_descriptor.append(extended_event_description)
-			if (ISO_639_language_code == self.prev2_ISO_639_language_code) or (self.prev2_ISO_639_language_code == "x"):
+			if self.prev2_ISO_639_language_code in [ISO_639_language_code, "x"]:
 				self.extended_event_descriptor_multi.append(extended_event_description)
 			else:
 				self.extended_event_descriptor_multi.append("\n\n" + extended_event_description)

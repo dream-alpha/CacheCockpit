@@ -47,7 +47,7 @@ class FileManager(FileManagerJob):
 
 	def execFileManagerOp(self, file_op, path, target_dir=None, file_op_callback=None):
 		logger.info("file_op: %s, path: %s, target_dir: %s", file_op, path, target_dir)
-		afile = self.getFile(path)
+		afile = self.getFile("recordings", path)
 		if afile:
 			self.addJob(file_op, path, target_dir, file_op_callback)
 		else:

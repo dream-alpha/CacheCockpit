@@ -75,7 +75,7 @@ class FileManagerJob(FileManagerCache):
 		progress = 0
 		if jobs:
 			job = jobs[0]
-			file_name = self.getFile(job.name)[FILE_IDX_NAME]
+			file_name = self.getFile("recordings", job.name)[FILE_IDX_NAME]
 			file_op = job.file_op
 			progress = job.progress
 		return len(jobs), file_name, file_op, progress

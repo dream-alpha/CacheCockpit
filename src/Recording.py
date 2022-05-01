@@ -71,7 +71,7 @@ class Recording():
 				self.updateXMetaFile(timer)
 				DelayTimer(250, FileManager.getInstance().loadDatabaseFile, timer.Filename)
 
-			elif timer.state == TimerEntry.StateEnded or timer.state == TimerEntry.StateWaiting:
+			elif timer.state in [TimerEntry.StateEnded, TimerEntry.StateWaiting]:
 				logger.debug("REC END for: %s, afterEvent: %s", timer.Filename, timer.afterEvent)
 				if os.path.exists(timer.Filename):
 					ParserMetaFile(timer.Filename).updateXMeta({"recording_stop_time": int(time.time())})

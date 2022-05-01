@@ -82,32 +82,37 @@ class FileManagerCache(FileManagerCacheSQL):
 	def execCacheOp(self, file_op, src_path, dst_dir):
 		logger.info("file_op: %s, src_path: %s, dst_dir: %s", file_op, src_path, dst_dir)
 		if file_op == FILE_OP_DELETE:
-			self.delete(src_path)
+			self.delete("recordings", src_path)
+			self.delete("covers", src_path)
 		elif file_op == FILE_OP_MOVE:
 			self.move(src_path, dst_dir)
 		elif file_op == FILE_OP_COPY:
 			self.copy(src_path, dst_dir)
 
-	def add(self, afile):
-		#logger.info("afile: %s", afile)
-		self.sqlInsert(afile)
+	def add(self, table, afile):
+		#logger.info("table: %s, afile: %s", table, afile)
+		self.sqlInsert(table, afile)
 
 	def exists(self, path):
-		afile = self.getFile(path)
+		afile = self.getFile("recordings", path)
 		logger.debug("path: %s, afile: %s", path, afile)
 		return afile is not None
 
-	def delete(self, path):
+	def delete(self, table, path):
 		logger.debug("path: %s", path)
-		where = "path LIKE ?"
-		self.sqlDelete(where, [path + "%"])
+		if table == "recordings":
+			where = "path LIKE ?"
+		else:
+			where = "file_name LIKE ?"
+			path = os.path.basename(path)
+		self.sqlDelete("recordings", where, [path + "%"])
 
 	def update(self, path, **kwargs):
 		logger.debug("%s, kwargs: %s", path, kwargs)
-		afile = self.getFile(path)
+		afile = self.getFile("recordings", path)
 		if afile:
 			afile = list(afile)
-			column_keys = [column.split(" ")[0] for column in self.RECORDING_COLUMNS]
+			column_keys = [column.split(" ", 1)[0] for column in self.RECORDING_COLUMNS]
 			logger.debug("kwargs.items(): %s", kwargs.items())
 			for key, value in kwargs.items():
 				logger.debug("key: %s, value: %s", key, value)
@@ -115,24 +120,24 @@ class FileManagerCache(FileManagerCacheSQL):
 					afile[column_keys.index(key)] = value
 				else:
 					logger.error("invalid column key: %s", key)
-			self.add(afile)
+			self.add("recordings", afile)
 
 	def copy(self, src_path, dst_dir):
 		logger.debug("src_path: %s, dst_dir: %s", src_path, dst_dir)
 		if not self.exists(dst_dir):
 			afile = self.newDirData(dst_dir)
-			self.add(afile)
-		file_list = self.sqlSelect("path LIKE ?", [src_path + "%"])
+			self.add("recordings", afile)
+		file_list = self.sqlSelect("recordings", "path LIKE ?", [src_path + "%"])
 		for afile in file_list:
 			logger.debug("afile: %s", afile)
 			path = afile[FILE_IDX_PATH]
 			dst_path = os.path.join(dst_dir, path[len(os.path.dirname(src_path)) + 1:])
-			dst_file = self.getFile(dst_path)
+			dst_file = self.getFile("recordings", dst_path)
 			if dst_file is None:
 				dst_file = list(afile)
 				dst_file[FILE_IDX_DIR] = os.path.dirname(dst_path)
 				dst_file[FILE_IDX_PATH] = dst_path
-				self.add(dst_file)
+				self.add("recordings", dst_file)
 			else:
 				logger.error("file already exists at destination: %s", dst_path)
 
@@ -140,12 +145,15 @@ class FileManagerCache(FileManagerCacheSQL):
 		logger.debug("src_path: %s, dst_dir: %s", src_path, dst_dir)
 		if os.path.dirname(src_path) != dst_dir:
 			self.copy(src_path, dst_dir)
-			self.delete(src_path)
+			self.delete("recordings", src_path)
 
-	def getFile(self, path):
-		logger.debug("path: %s", path)
+	def getFile(self, table, path):
+		logger.debug("table: %s, path: %s", table, path)
 		afile = None
-		file_list = self.sqlSelect("path = ?", [path])
+		if table == "recordings":
+			file_list = self.sqlSelect(table, "path = ?", [path])
+		else:
+			file_list = self.sqlSelect(table, "file_name = ?", [os.path.basename(path)])
 		if file_list:
 			if len(file_list) == 1:
 				afile = file_list[0]
@@ -162,7 +170,7 @@ class FileManagerCache(FileManagerCacheSQL):
 			binds = ",".join("?" * len(dirs))
 			where = "directory IN ({})".format(binds)
 			where += " AND file_type = %d" % FILE_TYPE_FILE
-			file_list = self.sqlSelect(where, dirs)
+			file_list = self.sqlSelect("recordings", where, dirs)
 		return file_list
 
 	def getDirList(self, dirs):
@@ -174,7 +182,7 @@ class FileManagerCache(FileManagerCacheSQL):
 			where += " AND file_name != 'trashcan'"
 			where += " AND file_name != '..'"
 			where += " AND file_type != %d" % FILE_TYPE_FILE
-			dirs_list = self.sqlSelect(where, dirs)
+			dirs_list = self.sqlSelect("recordings", where, dirs)
 
 		file_name_list = []
 		dir_list = []
@@ -190,7 +198,7 @@ class FileManagerCache(FileManagerCacheSQL):
 		total_count = total_size = 0
 		all_dirs = MountCockpit.getInstance().getVirtualDirs("MVC", [path])
 		for adir in all_dirs:
-			file_list = self.sqlSelect("path LIKE ? AND file_type = ?", [adir + "%", FILE_TYPE_FILE])
+			file_list = self.sqlSelect("recordings", "path LIKE ? AND file_type = ?", [adir + "%", FILE_TYPE_FILE])
 			for afile in file_list:
 				logger.debug("apath: %s, afile_type: %s", afile[FILE_IDX_PATH], afile[FILE_IDX_TYPE])
 				total_count += 1
@@ -206,7 +214,8 @@ class FileManagerCache(FileManagerCacheSQL):
 
 	def clearDatabase(self):
 		logger.debug("...")
-		self.sqlClearTable()
+		self.sqlClearTable("recordings")
+		self.sqlClearTable("covers")
 		self.database_loaded = False
 
 	### database load functions
@@ -232,7 +241,7 @@ class FileManagerCache(FileManagerCacheSQL):
 			DelayTimer(10, self.nextFileOp)
 
 	def nextFileOp(self):
-		logger.debug("...")
+		logger.info("...")
 		if self.load_list:
 			path = self.load_list.pop(0)
 			self.file_name = os.path.basename(path)
@@ -244,37 +253,49 @@ class FileManagerCache(FileManagerCacheSQL):
 			self.database_loaded = True
 			self.onDatabaseLoadedCallback()
 
+	def loadDatabaseCover(self, path):
+		logger.info("path: %s", path)
+		afile = self.newCoverData(path)
+		self.add("covers", afile)
+
 	def loadDatabaseFile(self, path):
-		logger.debug("path: %s", path)
+		logger.info("path: %s", path)
 		if os.path.isfile(path):
 			afile = self.newFileData(path)
-			self.add(afile)
+			self.add("recordings", afile)
+			afile = self.newCoverData(path)
+			self.add("covers", afile)
 		else:
 			if os.path.islink(path):
 				afile = self.newLinkData(path)
-				self.add(afile)
+				self.add("recordings", afile)
 			elif os.path.isdir(path):
 				afile = self.newDirData(path)
-				self.add(afile)
+				self.add("recordings", afile)
 			if not MountCockpit.getInstance().isBookmark(path):
 				afile = self.newDirData(os.path.join(path, ".."))
-				self.add(afile)
+				self.add("recordings", afile)
 		if self.database_loaded:
 			self.onDatabaseChangedCallback()
 
+	def newCoverData(self, path):
+		logger.info("path: %s", path)
+		cover = readFile(os.path.splitext(path)[0] + ".jpg")
+		return (os.path.basename(path), cover)
+
 	def newDirData(self, path):
 		logger.info("path: %s", path)
-		ext, short_description, extended_description, service_reference, cuts, tags, cover = "", "", "", "", "", "", ""
+		ext, short_description, extended_description, service_reference, cuts, tags = "", "", "", "", "", ""
 		size = length = event_start_time = recording_start_time = recording_stop_time = 0
 		name = convertToUtf8(os.path.basename(path))
-		return (os.path.dirname(path), FILE_TYPE_DIR, path, os.path.basename(path), ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags, cover)
+		return (os.path.dirname(path), FILE_TYPE_DIR, path, os.path.basename(path), ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags)
 
 	def newLinkData(self, path):
 		logger.info("path: %s", path)
-		ext, short_description, extended_description, service_reference, cuts, tags, cover = "", "", "", "", "", "", ""
+		ext, short_description, extended_description, service_reference, cuts, tags = "", "", "", "", "", ""
 		size = length = event_start_time = recording_start_time = recording_stop_time = 0
 		name = convertToUtf8(os.path.basename(path))
-		return (os.path.dirname(path), FILE_TYPE_LINK, path, os.path.basename(path), ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags, cover)
+		return (os.path.dirname(path), FILE_TYPE_LINK, path, os.path.basename(path), ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags)
 
 	def newFileData(self, path):
 
@@ -363,10 +384,8 @@ class FileManagerCache(FileManagerCacheSQL):
 		else:
 			length = ptsToSeconds(getCutListLength(unpackCutList(cuts)))
 
-		cover = readFile(file_path + ".jpg")
-
 		logger.debug("path: %s, name: %s, event_start_time %s, length: %s", path, name, datetime.fromtimestamp(event_start_time), length)
-		return (file_dir, FILE_TYPE_FILE, path, file_name, ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags, cover)
+		return (file_dir, FILE_TYPE_FILE, path, file_name, ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags)
 
 	### database load list functions
 

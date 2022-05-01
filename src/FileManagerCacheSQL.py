@@ -30,7 +30,11 @@ class FileManagerCacheSQL():
 		"directory TEXT", "file_type INTEGER", "path TEXT", "file_name TEXT", "file_ext TEXT", "name TEXT",
 		"event_start_time INTEGER", "recording_start_time INTEGER", "recording_stop_time INTEGER", "length INTEGER",
 		"description TEXT", "extended_description TEXT", "service_reference TEXT", "size INTEGER", "cuts BLOB",
-		"tags TEXT", "cover BLOB"
+		"tags TEXT"
+	]
+
+	COVER_COLUMNS = [
+		"file_name TEXT", "cover BLOB"
 	]
 
 	def __init__(self):
@@ -43,36 +47,44 @@ class FileManagerCacheSQL():
 		columns = ", ".join(column for column in self.RECORDING_COLUMNS)
 		self.sql_conn.execute("""CREATE TABLE IF NOT EXISTS recordings ({})""".format(columns))
 		self.sql_conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_path ON recordings (path)""")
+		columns = ", ".join(column for column in self.COVER_COLUMNS)
+		self.sql_conn.execute("""CREATE TABLE IF NOT EXISTS covers ({})""".format(columns))
+		self.sql_conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_file_name ON covers (file_name)""")
 		self.sql_conn.text_factory = str
 		self.cursor = self.sql_conn.cursor()
 
-	def sqlClearTable(self):
-		self.cursor.execute("DELETE FROM recordings")
+	def sqlClearTable(self, table):
+		sql = """DELETE FROM %s""" % table
+		self.cursor.execute(sql)
 		self.sql_conn.commit()
 
 	def setCaseSensitiveLike(self):
 		self.cursor.execute("PRAGMA case_sensitive_like = true")
 		self.sql_conn.commit()
 
-	def sqlSelect(self, where, args=None):
-		sql = """SELECT * FROM recordings WHERE %s""" % where
+	def sqlSelect(self, table, where, args=None):
+		sql = """SELECT * FROM %s WHERE %s""" % (table, where)
 		logger.debug("sql: %s, args: %s", sql, args)
 		self.cursor.execute(sql, args)
 		file_list = self.cursor.fetchall()
 		self.sql_conn.commit()
 		return file_list
 
-	def sqlDelete(self, where, args=None):
-		sql = """DELETE FROM recordings WHERE %s""" % where
+	def sqlDelete(self, table, where, args=None):
+		sql = """DELETE FROM %s WHERE %s""" % (table, where)
 		logger.debug("sql: %s, arguments: %s", sql, args)
 		self.cursor.execute(sql, args)
 		self.sql_conn.commit()
 
-	def sqlInsert(self, afile):
-		afile = list(afile)
-		afile[FILE_IDX_CUTS] = sqlite.Binary(afile[FILE_IDX_CUTS])
-		binds = ",".join("?" * len(self.RECORDING_COLUMNS))
-		self.cursor.execute("""REPLACE INTO recordings VALUES ({})""".format(binds), afile)
+	def sqlInsert(self, table, afile):
+		if table == "recordings":
+			afile = list(afile)
+			afile[FILE_IDX_CUTS] = sqlite.Binary(afile[FILE_IDX_CUTS])
+			binds = ",".join("?" * len(self.RECORDING_COLUMNS))
+		else:
+			binds = ",".join("?" * len(self.COVER_COLUMNS))
+		sql = ("""REPLACE INTO %s VALUES ({})""" % table).format(binds)
+		self.cursor.execute(sql, afile)
 		self.sql_conn.commit()
 
 	def sqlClose(self):
