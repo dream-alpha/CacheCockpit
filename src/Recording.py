@@ -29,9 +29,10 @@ from timer import TimerEntry
 from DelayTimer import DelayTimer
 from ParserMetaFile import ParserMetaFile
 from FileManager import FileManager
+from FileManagerUtils import FILE_OP_MOVE, FILE_IDX_NAME, FILE_IDX_EVENT_START_TIME, FILE_IDX_LENGTH
 import Screens.Standby
 from RecordTimer import AFTEREVENT
-from FileManagerUtils import FILE_OP_MOVE
+from MovieCoverDownload import MovieCoverDownload
 
 
 class Recording():
@@ -70,6 +71,8 @@ class Recording():
 					timer.afterEvent = AFTEREVENT.NONE
 				self.updateXMetaFile(timer)
 				DelayTimer(250, FileManager.getInstance().loadDatabaseFile, timer.Filename)
+				if config.plugins.moviecockpit.cover_auto_download.value:
+					DelayTimer(1000, self.autoCoverDownload, timer.Filename, timer.service_ref)
 
 			elif timer.state in [TimerEntry.StateEnded, TimerEntry.StateWaiting]:
 				logger.debug("REC END for: %s, afterEvent: %s", timer.Filename, timer.afterEvent)
@@ -110,3 +113,15 @@ class Recording():
 					logger.debug("loadDatabaseFile: %s", timer.Filename)
 					self.updateXMetaFile(timer)
 					FileManager.getInstance().loadDatabaseFile(timer.Filename)
+
+	def autoCoverDownload(self, path, service_ref):
+		afile = FileManager.getInstance().getFile("recordings", path)
+		if afile is not None:
+			MovieCoverDownload().getMovieCover(
+				path,
+				service_ref,
+				afile[FILE_IDX_NAME],
+				afile[FILE_IDX_EVENT_START_TIME],
+				afile[FILE_IDX_LENGTH],
+			)
+			FileManager.getInstance().loadDatabaseCover(path)

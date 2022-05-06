@@ -59,9 +59,10 @@ class FileManagerTask(Task, FileManagerCache, FileOp):
 	def run(self, callback):
 
 		def checkFreeSpace(path, target_dir):
+			logger.info("path: %s, target_dir: %s", path, target_dir)
 			error = FILE_OP_ERROR_NONE
-			_used_percent, _used, free = getBookmarkSpaceInfo(MountCockpit.getInstance().getBookmark("MVC", target_dir))
-			_count, size = self.getCountSize(path)
+			free = getBookmarkSpaceInfo(MountCockpit.getInstance().getBookmark("MVC", target_dir))[2]
+			size = self.getCountSize(path)[1]
 			logger.debug("size: %s, free: %s", size, free)
 			if free * 0.8 < size:
 				logger.info("not enough space left: size: %s, free: %s", size, free)

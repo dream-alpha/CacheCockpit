@@ -19,8 +19,15 @@
 # <http://www.gnu.org/licenses/>.
 
 
-PLUGIN = "CacheCockpit"
-ID = "CAC"
-VERSION = "1.23.1"
-COPYRIGHT = "2018-2022 by dream-alpha"
-LICENSE = "This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version."
+import os
+from Debug import logger
+
+
+def getCoverPath(path):
+	logger.debug("path: %s", path)
+	base = os.path.splitext(path)[0]
+	cover_path = base + ".jpg"
+	backdrop_path = base + ".backdrop.jpg"
+	info_path = base + ".txt"
+	logger.debug("cover_path: %s, backdrop_path: %s, info_path: %s", cover_path, backdrop_path, info_path)
+	return cover_path, backdrop_path, info_path

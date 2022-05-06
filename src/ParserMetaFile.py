@@ -39,15 +39,12 @@ class ParserMetaFile():
 
 	def __init__(self, path):
 		self.path = path
-		self.meta_path = path + ".meta"
-		self.xmeta_path = path + ".xmeta"
-		if not os.path.exists(self.meta_path):
-			path, ext = os.path.splitext(path)
-			# remove cut number
-			if path[-4] == "_" and path[-3:].isdigit():
-				path = path[:-4] + ext
-				self.meta_path = path + ".meta"
-				self.xmeta_path = path + ".xmeta"
+		path, ext = os.path.splitext(path)
+		# remove cut number
+		if path[-4] == "_" and path[-3:].isdigit():
+			path = path[:-4]
+		self.meta_path = path + ext + ".meta"
+		self.xmeta_path = path + ext + ".xmeta"
 
 		self.meta_list = self.readMeta(self.meta_path)
 		self.meta = self.list2dict(self.meta_list, self.meta_keys)
