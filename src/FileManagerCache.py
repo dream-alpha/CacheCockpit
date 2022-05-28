@@ -105,7 +105,7 @@ class FileManagerCache(FileManagerCacheSQL):
 		else:
 			where = "file_name LIKE ?"
 			path = os.path.basename(path)
-		self.sqlDelete("recordings", where, [path + "%"])
+		self.sqlDelete(table, where, [path + "%"])
 
 	def update(self, path, **kwargs):
 		logger.debug("%s, kwargs: %s", path, kwargs)

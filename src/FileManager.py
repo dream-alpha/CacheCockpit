@@ -20,7 +20,7 @@
 
 
 import os
-import time
+from time import time
 from Debug import logger
 from Components.config import config
 from FileManagerUtils import FILE_TYPE_FILE, FILE_TYPE_DIR, FILE_IDX_TYPE, FILE_IDX_PATH, FILE_OP_ERROR_NONE
@@ -88,26 +88,22 @@ class FileManager(FileManagerJob):
 			logger.error("archive_source_dir and/or archive_target_dir does not exist.")
 
 	def purgeTrashcan(self, retention=0, callback=None):
-		logger.info("...")
 		deleted_files = 0
-		now = time.localtime()
+		now = time()
 		trashcan_dir = os.path.join(MountCockpit.getInstance().getHomeDir("MVC"), "trashcan")
-		logger.debug("trashcan_dir: %s", trashcan_dir)
 		all_dirs = MountCockpit.getInstance().getVirtualDirs("MVC", [trashcan_dir])
-		logger.info("all_dirs: %s", all_dirs)
 		for adir in all_dirs:
 			file_list = self.getFileList([adir])
 			file_list += self.getDirList([adir])
-			if file_list:
-				for afile in file_list:
-					path = afile[FILE_IDX_PATH]
-					if os.path.exists(path):
-						if now > time.localtime(os.stat(path).st_mtime + 24 * 60 * 60 * retention):
-							logger.info("path: %s", path)
-							deleted_files += 1
-							self.execFileManagerOp(FILE_OP_DELETE, path, None, callback)
-					else:
+			for afile in file_list:
+				path = afile[FILE_IDX_PATH]
+				if os.path.exists(path):
+					if now > os.stat(path).st_mtime + 24 * 60 * 60 * retention:
 						logger.info("path: %s", path)
 						deleted_files += 1
 						self.execFileManagerOp(FILE_OP_DELETE, path, None, callback)
+				else:
+					logger.info("path: %s", path)
+					deleted_files += 1
+					self.execFileManagerOp(FILE_OP_DELETE, path, None, callback)
 		logger.info("deleted_files: %d", deleted_files)

@@ -42,6 +42,8 @@ class Recording():
 		self.after_events = []
 		NavigationInstance.instance.RecordTimer.on_state_change.append(self.recordingEvent)
 		self.check4ActiveRecordings()
+		if config.plugins.moviecockpit.timer_autoclean.value:
+			NavigationInstance.instance.RecordTimer.cleanup()
 
 	def updateXMetaFile(self, timer):
 		ParserMetaFile(timer.Filename).updateXMeta({

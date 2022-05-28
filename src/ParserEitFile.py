@@ -53,9 +53,6 @@ class ParserEitFile():
 		self.prev2_ISO_639_language_code = "x"
 
 		path = os.path.splitext(path)[0]
-		# strip cut number
-		if path[-4] == "_" and path[-3:].isdigit():
-			path = path[:-4]
 		data = readFile(path + ".eit")
 		if len(data) >= 12:
 			self.__parse(data)
