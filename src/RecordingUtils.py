@@ -19,19 +19,27 @@
 # <http://www.gnu.org/licenses/>.
 
 
+from time import time
 from Debug import logger
 from RecordTimer import AFTEREVENT
 import NavigationInstance
 
 
-def isRecording(path):
+def isRecording(path=None):
 	logger.debug("path: %s", path)
 	timer = None
 	for __timer in NavigationInstance.instance.RecordTimer.timer_list:
-		if __timer.isRunning() and not __timer.justplay and path == __timer.Filename:
-			timer = __timer
-			break
+		if __timer.isRunning() and not __timer.justplay:
+			if path == __timer.Filename or path is None:
+				timer = __timer
+				break
 	return timer
+
+
+def isRecordingOrRecordingSoon(session):
+	recordings = session.nav.getRecordings()
+	next_rec_time = session.nav.RecordTimer.getNextRecordingTime()
+	return recordings or (next_rec_time > 0 and (next_rec_time - time()) < 360)
 
 
 def isTimeshifting():

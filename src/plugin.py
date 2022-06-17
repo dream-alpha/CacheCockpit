@@ -30,7 +30,6 @@ from FileUtils import deleteFile, touchFile
 from ConfigInit import ConfigInit
 from ConfigScreen import ConfigScreen
 import Screens.Standby
-import Standby
 from FileManager import FileManager
 from Trashcan import Trashcan
 from Recording import Recording
@@ -85,7 +84,6 @@ def Plugins(**__):
 		createLogFile()
 
 	config.misc.standbyCounter.addNotifier(enteringStandby, initial_call=False)
-	Screens.Standby.TryQuitMainloop = Standby.TryQuitMainloop
 
 	descriptors = []
 	descriptors.append(
