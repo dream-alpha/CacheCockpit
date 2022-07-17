@@ -1,5 +1,17 @@
 msgid ""
 msgstr ""
+"#-#-#-#-#  de.po  #-#-#-#-#\n"
+"Project-Id-Version: \n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: dream-alpha\n"
+"Language-Team: \n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.1\n"
+"#-#-#-#-#  de.po  #-#-#-#-#\n"
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-06-17 08:54+0200\n"
@@ -17,6 +29,99 @@ msgstr ""
 "X-Loco-Api-Version: 1.0.19 20180501-1\n"
 "X-Poedit-Basepath: ../src\n"
 "X-Poedit-SearchPath-0: .\n"
+
+msgid "Plugin"
+msgstr ""
+
+msgid "Version"
+msgstr ""
+
+msgid "Copyright"
+msgstr ""
+
+msgid "License"
+msgstr ""
+
+msgid "End"
+msgstr ""
+
+msgid "Stop playback"
+msgstr ""
+
+msgid "Skip forward"
+msgstr ""
+
+msgid "Skip backward"
+msgstr ""
+
+msgid "EPG Info"
+msgstr ""
+
+msgid "Do you want to resume playback at position: %d:%02d:%02d?"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Defaults"
+msgstr ""
+
+msgid "Really close without saving settings?"
+msgstr ""
+
+msgid "Setup"
+msgstr ""
+
+msgid "Loading default settings will overwrite all settings, really load them?"
+msgstr ""
+
+msgid "Some changes require a GUI restart"
+msgstr ""
+
+msgid "Restart GUI now?"
+msgstr ""
+
+msgid "Bookmarks"
+msgstr ""
+
+msgid "Select directory"
+msgstr ""
+
+msgid "Path does not exist"
+msgstr ""
+
+msgid "Close"
+msgstr ""
+
+msgid "Hide"
+msgstr ""
+
+msgid "Cancelling, please wait"
+msgstr ""
+
+msgid "Processing"
+msgstr ""
+
+msgid "of"
+msgstr ""
+
+msgid "Done"
+msgstr ""
+
+msgid "Cancelled"
+msgstr ""
+
+msgid "Please wait"
+msgstr ""
+
+msgid "min"
+msgstr ""
+
+msgid "trashcan"
+msgstr ""
 
 msgid "No override"
 msgstr ""
@@ -208,9 +313,6 @@ msgid "Copying"
 msgstr ""
 
 msgid "File task"
-msgstr ""
-
-msgid "Setup"
 msgstr ""
 
 msgid "Open setup"

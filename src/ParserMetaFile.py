@@ -28,11 +28,11 @@ from CutListUtils import ptsToSeconds
 class ParserMetaFile():
 
 	meta_keys = [
-		"service_reference", "name", "description", "rec_time", "tags", "length", "size", "service_data"
+		"service_reference", "name", "description", "recording_start_time", "tags", "length", "size", "service_data"
 	]
 
 	xmeta_keys = [
-		"timer_start_time", "timer_stop_time", "recording_start_time", "recording_stop_time", "recording_margin_before",
+		"timer_start_time", "timer_stop_time", "unused", "recording_stop_time", "recording_margin_before",
 		"recording_margin_after"
 	]
 
@@ -49,7 +49,7 @@ class ParserMetaFile():
 		self.xmeta_list = self.readMeta(self.xmeta_path)
 		self.xmeta = self.list2dict(self.xmeta_list, self.xmeta_keys)
 		if self.meta and not self.xmeta:
-			self.xmeta["recording_start_time"] = self.meta["rec_time"]
+			self.xmeta["unused"] = -1
 			self.xmeta["recording_stop_time"] = 0
 			self.xmeta["recording_margin_before"] = config.recording.margin_before.value * 60
 			self.xmeta["recording_margin_after"] = config.recording.margin_after.value * 60

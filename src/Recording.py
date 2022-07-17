@@ -47,7 +47,7 @@ class Recording():
 
 	def updateXMetaFile(self, timer):
 		ParserMetaFile(timer.Filename).updateXMeta({
-			"recording_start_time": int(time.time()),
+			"unused": -1,
 			"recording_stop_time": 0,
 			"timer_start_time": timer.begin,
 			"timer_stop_time": timer.end,
