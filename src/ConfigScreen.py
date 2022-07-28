@@ -41,6 +41,7 @@ from SkinUtils import getSkinName
 
 
 class ConfigScreen(ConfigScreenInit, ConfigListScreen, Screen):
+
 	def __init__(self, session, config_plugins_plugin):
 		self.config_plugins_plugin = config_plugins_plugin
 		Screen.__init__(self, session)

@@ -19,8 +19,16 @@
 # <http://www.gnu.org/licenses/>.
 
 
-PLUGIN = "CacheCockpit"
-ID = "CAC"
-VERSION = "2.3.2"
-COPYRIGHT = "2018-2022 by dream-alpha"
-LICENSE = "This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version."
+import os
+from Debug import logger
+from pipes import quote
+
+
+def getFfprobeDuration(path):
+	try:
+		duration = os.popen("ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 %s" % quote(path)).read()
+		duration = int(float(duration.replace("\n", "")))
+	except Exception as e:
+		logger.error("exception: %s", e)
+		duration = 0
+	return duration

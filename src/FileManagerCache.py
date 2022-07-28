@@ -27,7 +27,6 @@ from FileManagerCacheSQL import FileManagerCacheSQL
 from datetime import datetime
 from ParserEitFile import ParserEitFile
 from ParserMetaFile import ParserMetaFile
-from CutListUtils import unpackCutList, ptsToSeconds, getCutListLength
 from ServiceUtils import EXT_TS, ALL_VIDEO
 from FileUtils import readFile, deleteFile
 from DelayTimer import DelayTimer
@@ -35,6 +34,7 @@ from UnicodeUtils import convertToUtf8
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
 from FileManagerUtils import SQL_DB_NAME, FILE_TYPE_FILE, FILE_IDX_TYPE, FILE_TYPE_DIR, FILE_TYPE_LINK, FILE_IDX_DIR, FILE_IDX_PATH, FILE_IDX_FILENAME, FILE_IDX_SIZE
 from FileManagerUtils import FILE_OP_LOAD, FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY
+from VideoUtils import getFfprobeDuration
 
 
 class FileManagerCache(FileManagerCacheSQL):
@@ -382,7 +382,7 @@ class FileManagerCache(FileManagerCacheSQL):
 			if cutno:
 				name = "%s (%s)" % (name, cutno)
 		else:
-			length = ptsToSeconds(getCutListLength(unpackCutList(cuts)))
+			length = getFfprobeDuration(path)
 
 		logger.debug("path: %s, name: %s, event_start_time %s, length: %s", path, name, datetime.fromtimestamp(event_start_time), length)
 		return (file_dir, FILE_TYPE_FILE, path, file_name, ext, name, event_start_time, recording_start_time, recording_stop_time, length, short_description, extended_description, service_reference, size, cuts, tags)
