@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -108,17 +108,3 @@ def startTimeshiftRecording():
 	logger.info("...")
 	if hasattr(InfoBar.instance, "startTimeshiftRecording"):
 		InfoBar.instance.startTimeshiftRecording()
-
-
-def getSeriesDir(name):
-	logger.info("name: %s", name)
-	parts = []
-	dirname = ""
-	if ": " in name:
-		parts = name.split(": ")
-	elif " - " in name:
-		parts = name.split(" - ")
-	if len(parts) > 1:
-		dirname = parts[0]
-	logger.info("dirname: %s", dirname)
-	return dirname

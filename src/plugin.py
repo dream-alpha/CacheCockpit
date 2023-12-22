@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -22,31 +22,22 @@
 import os
 from Components.config import config
 from Plugins.Plugin import PluginDescriptor
-from .__init__ import _
 from .Debug import logger
 from .Version import VERSION
 from .ConfigInit import ConfigInit
-from .ConfigScreen import ConfigScreen
 from .FileManager import FileManager
-from .Trashcan import Trashcan
 from .Recording import Recording
-from .SkinUtils import loadPluginSkin
 
 
-def openSettings(session, **__):
-	logger.info("...")
-	session.open(ConfigScreen, config.plugins.moviecockpit)
-
-
-def enteringStandby(reason):
-	logger.info("reason: %s, count: %d", reason, config.misc.standbyCounter.value)
-	# if Screens.Standby.inStandby and config.misc.standbyCounter.value == 1 and config.plugins.cachecockpit.archive_enable.value:
+def enteringStandby(_reason):
+	logger.info("count: %d", config.misc.standbyCounter.value)
+	# if Screens.Standby.inStandby and config.misc.standbyCounter.value == 1 and config.plugins.moviecockpit.archive_enable.value:
 	# 	Screens.Standby.inStandby.onClose.append(leavingStandby)
 
 
 def leavingStandby():
 	logger.info("...")
-	# if config.misc.standbyCounter.value == 1 and config.plugins.cachecockpit.archive_enable.value:
+	# if config.misc.standbyCounter.value == 1 and config.plugins.moviecockpit.archive_enable.value:
 	# 	logger.debug("cancelling %s jobs", len(jobs))
 	# 	FileManager.getInstance().cancelJobs()
 
@@ -57,9 +48,7 @@ def autoStart(reason, **kwargs):
 			logger.info("+++ Version: %s starts...", VERSION)
 			logger.info("reason: %s", reason)
 			# session = kwargs["session"]
-			Recording()
-			Trashcan.getInstance()
-			loadPluginSkin("skin.xml")
+			Recording.getInstance()
 	elif reason == 1:  # shutdown
 		logger.info("--- shutdown")
 		if not os.path.exists("/etc/enigma2/.cachecockpit"):
@@ -82,18 +71,6 @@ def Plugins(**__):
 				PluginDescriptor.WHERE_AUTOSTART
 			],
 			fnc=autoStart
-		)
-	)
-
-	descriptors.append(
-		PluginDescriptor(
-			name="CacheCockpit" + " - " + _("Setup"),
-			description=_("Open setup"),
-			icon="CacheCockpit.svg",
-			where=[
-				PluginDescriptor.WHERE_PLUGINMENU,
-			],
-			fnc=openSettings
 		)
 	)
 

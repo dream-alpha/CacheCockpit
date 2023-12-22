@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -20,7 +20,6 @@
 
 
 import time
-import json
 from datetime import datetime
 from .Debug import logger
 from .MovieCoverUNIDownload import MovieCoverUNIDownload
@@ -33,46 +32,40 @@ class MovieCoverTVFADownload(WebRequests, MovieCoverUNIDownload):
 		WebRequests.__init__(self)
 		MovieCoverUNIDownload.__init__(self)
 
-	def getCoverUrl(self, channel_id, event_start, length):
-		content = []
+	def getCoverUrl(self, _channel_id, _event_start):
 		to_time = datetime.now().strftime("%Y-%m-%d")
 		url = "https://tvfueralle.de/api/broadcasts/%s" % to_time
 		logger.debug("url: %s", url)
-		r_content = self.getContent(url)
-		if r_content and "errMsg" not in r_content:
-			# logger.debug("r_content: %s", r_content)
-			content = json.loads(r_content)
-			# logger.debug("content: %s", content)
-		url = self.parseEvents(content, event_start, length, channel_id)
-		logger.debug("url: %s", url)
-		return url
+		return url, []
 
-	def parseEvents(self, content, event_start, length, channel_id):
+	def parseEvents(self, channel_id, content, event_start, length):
 		logger.info("...")
 		# logger.debug("content: %s", str(content))
 		cover_url = ""
 		cover_title = ""
-		title = "n/a"
-		if content and "events" in content:
-			for event in content["events"]:
-				url = ""
-				starttime = 0
-				if "startTime" in event:
-					starttime = event["startTime"]
-				date_raw = starttime.split('+')[0]
-				timestart = int(time.mktime(datetime.strptime(date_raw, "%Y-%m-%dT%H:%M:%S").timetuple()))
-				if "title" in event:
-					title = event["title"]
+		events = content.get("events", [])
+		for event in events:
+			url = ""
+			starttime = event.get("startTime", 0)
+			date_raw = starttime.split('+')[0]
+			timestart = int(time.mktime(datetime.strptime(date_raw, "%Y-%m-%dT%H:%M:%S").timetuple()))
+			title = event.get("title", "n/a")
+			channel = event.get("channel", "")
+			if channel == channel_id:
+				photo = event.get("photo", "")
+				if photo:
+					url = "https://tvfueralle.de" + photo["url"]
+					logger.debug("image url: %s", url)
 
-				if "channel" in event and event["channel"] == channel_id and "content" in event:
-					if "photo" in event:
-						url = "https://tvfueralle.de" + event["photo"]["url"]
-						logger.debug("image url: %s", url)
-
-					if not self.findEvent(timestart, event_start, length):
-						cover_url = url
-						cover_title = title
-					else:
-						break
+				if not self.findEvent(timestart, event_start, length):
+					logger.debug(">>> saving: url: %s, title: %s", url, title)
+					cover_url = url
+					cover_title = title
+				else:
+					logger.debug(">>> break: url: %s, title: %s", cover_url, cover_title)
+					break
+		else:
+			cover_url = ""
+			cover_title = "n/a"
 		logger.debug("cover_title: %s, cover_url: %s", cover_title, cover_url)
 		return cover_url

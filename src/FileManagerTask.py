@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -21,29 +21,24 @@
 
 import os
 from Components.Task import Task
-from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
-from Plugins.SystemPlugins.MountCockpit.MountUtils import getBookmarkSpaceInfo
 from enigma import eTimer
-from .__init__ import _
 from .Debug import logger
-from .FileOp import FileOp
-from .FileManagerCache import FileManagerCache
-from .FileManagerUtils import FILE_OP_MOVE, FILE_OP_COPY, FILE_OP_DELETE, FILE_OP_ERROR_NONE, FILE_OP_ERROR_ABORT, FILE_OP_ERROR_NO_DISKSPACE
+from .FileCache import FileCache
+from .FileManagerUtils import FILE_OP_ERROR_NONE, FILE_OP_ERROR_ABORT, FILE_TASK, file_op_msg
 
 
 ACTIVITY_TIMER_DELAY = 1000
-file_ops = {FILE_OP_DELETE: _("Deleting"), FILE_OP_MOVE: _("Moving"), FILE_OP_COPY: _("Copying")}
 
 
-class FileManagerTask(Task, FileManagerCache, FileOp):
+class FileManagerTask(Task, FileCache):
 
-	def __init__(self, job, file_op, path, target_dir, job_callback, file_op_callback):
+	def __init__(self, job, file_op, file_type, path, target_dir, job_callback, file_op_callback):
 		logger.info("file_op = %s, path = %s, target_dir = %s", file_op, path, target_dir)
-		Task.__init__(self, job, _("File task") + ": " + file_ops[file_op])
-		FileManagerCache.__init__(self)
-		FileOp.__init__(self)
+		Task.__init__(self, job, FILE_TASK + ": " + file_op_msg[file_op])
+		FileCache.__init__(self)
 		self.job = job
 		self.file_op = file_op
+		self.file_type = file_type
 		self.path = path
 		self.target_dir = target_dir
 		self.file_op_callback = file_op_callback
@@ -57,18 +52,6 @@ class FileManagerTask(Task, FileManagerCache, FileOp):
 		self.error = FILE_OP_ERROR_ABORT
 
 	def run(self, callback):
-
-		def checkFreeSpace(path, target_dir):
-			logger.info("path: %s, target_dir: %s", path, target_dir)
-			error = FILE_OP_ERROR_NONE
-			free = getBookmarkSpaceInfo(MountCockpit.getInstance().getBookmark("MVC", target_dir))[2]
-			size = self.getCountSize(path)[1]
-			logger.debug("size: %s, free: %s", size, free)
-			if free * 0.8 < size:
-				logger.info("not enough space left: size: %s, free: %s", size, free)
-				error = FILE_OP_ERROR_NO_DISKSPACE
-			return error
-
 		logger.info("self.file_op: %s, self.path: %s, self.target_dir: %s, callback: %s", self.file_op, self.path, self.target_dir, callback)
 		self.callback = callback
 		self.error = FILE_OP_ERROR_NONE
@@ -77,26 +60,9 @@ class FileManagerTask(Task, FileManagerCache, FileOp):
 		if os.path.exists(self.path):
 			self.source_size = os.path.getsize(self.path)
 		self.updateProgress()
+		self.execCacheOp(self.file_op, self.file_type, self.path, self.target_dir)
 
-		if self.file_op == FILE_OP_DELETE:
-			self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback)
-		elif self.file_op == FILE_OP_MOVE:
-			if not MountCockpit.getInstance().sameMountPoint("MVC", self.path, self.target_dir):
-				self.error = checkFreeSpace(self.path, self.target_dir)
-				if not self.error:
-					self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback)
-				else:
-					self.execFileOpCallback(self.file_op, self.path, self.target_dir, self.error)
-			else:
-				self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback)
-		elif self.file_op == FILE_OP_COPY:
-			self.error = checkFreeSpace(self.path, self.target_dir)
-			if not self.error:
-				self.execFileOp(self.file_op, self.path, self.target_dir, self.execFileOpCallback)
-			else:
-				self.execFileOpCallback(self.file_op, self.path, self.target_dir, self.error)
-
-	def execFileOpCallback(self, _file_op, _path, _target_dir, _error):
+	def execCacheOpCallback(self, _file_op, _path, _target_dir, _error):
 		logger.info("...")
 		self.activity_timer.stop()
 		self.finish()

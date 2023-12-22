@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -24,7 +24,22 @@ from pipes import quote
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
 from .Debug import logger
 from .Shell import Shell
-from .FileManagerUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY, FILE_OP_ERROR_NONE
+from .FileManagerUtils import FILE_TYPE_FILE, FILE_TYPE_DIR, FILE_TYPE_LINK
+from .FileManagerUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY, FILE_OP_FSTRIM, FILE_OP_ERROR_NONE
+
+
+SCRIPTDIR = "/usr/script/CacheCockpit"
+
+
+def removeEmptyDirs(src_path):
+	logger.info("src_path: %s", src_path)
+	src_bookmark = MountCockpit.getInstance().getBookmark("MVC", src_path)
+	cmds = []
+	while src_path != src_bookmark and os.path.dirname(src_path) != src_bookmark:
+		cmds.append("%s %s" % (os.path.join(SCRIPTDIR, "rm_empty_dir.sh"), quote(src_path)))
+		src_path = os.path.dirname(src_path)
+	logger.debug("cmds: %s", cmds)
+	return cmds
 
 
 class FileOp(Shell):
@@ -32,85 +47,79 @@ class FileOp(Shell):
 	def __init__(self):
 		Shell.__init__(self)
 
-	def abortFileOp(self):
-		logger.info("...")
-		self.abortShell()
+	def execFileOpCallback(self, _file_op, _path, _target_dir, _error):  # pylint: disable=W0221
+		logger.error("should be overridden in child class")
 
-	def execFileOp(self, file_op, path, target_dir, exec_file_op_callback=None):
-		self.exec_file_op_callback = exec_file_op_callback
+	def execFileOp(self, file_op, file_type, path, target_dir):
 		error = FILE_OP_ERROR_NONE
 		cmds = [[], [], []]  # first execution script, second execution script, abort cleanup script
 		wait_for_completion = True
-		logger.info("file_op: %s, path: %s, target_dir: %s, exec_file_op_callback: %s", file_op, path, target_dir, exec_file_op_callback)
+		logger.info("file_op: %s, path: %s, target_dir: %s" , file_op, path, target_dir)
 		if file_op == FILE_OP_DELETE:
-			cmds[0] = self.__execFileDelete(path)
+			cmds[0] = self.__execFileDelete(file_type, path)
 		elif file_op == FILE_OP_MOVE:
 			if MountCockpit.getInstance().sameMountPoint("MVC", path, target_dir):
-				cmds[0] = self.__execFileMove(path, target_dir)
+				cmds[0] = self.__execFileMove(file_type, path, target_dir)
 				wait_for_completion = False
 			else:
-				cmds[0] = self.__execFileCopy(path, target_dir)
-				cmds[1] = self.__execFileDelete(path)
-				cmds[2] = self.__execFileDelete(os.path.join(target_dir, os.path.basename(path)), force=True)
+				cmds[0] = self.__execFileCopy(file_type, path, target_dir)
+				cmds[1] = self.__execFileDelete(file_type, path)
+				cmds[2] = self.__execFileDelete(file_type, os.path.join(target_dir, os.path.basename(path)), force=True)
 		elif file_op == FILE_OP_COPY:
-			cmds[0] = self.__execFileCopy(path, target_dir)
-			cmds[2] = self.__execFileDelete(os.path.join(target_dir, os.path.basename(path)), force=True)
+			cmds[0] = self.__execFileCopy(file_type, path, target_dir)
+			cmds[2] = self.__execFileDelete(file_type, os.path.join(target_dir, os.path.basename(path)), force=True)
+		elif file_op == FILE_OP_FSTRIM:
+			cmds[0] = self.__execFSTrim()
 		logger.info("wait_for_completion: %s, cmds: %s", wait_for_completion, cmds)
-		self.executeShell(cmds, self.exec_file_op_callback, wait_for_completion, file_op, path, target_dir, error)
+		self.execShell(cmds, wait_for_completion, file_op, path, target_dir, error)
 
-	def __execFileDelete(self, path, force=False):
+	def __execFileDelete(self, file_type, path, force=False):
 		logger.info("path: %s, force: %s", path, force)
 		cmds = []
 		if force:
 			cmds.append("rm -f %s.*" % quote(os.path.splitext(path)[0]))
 		else:
-			if os.path.isfile(path):
+			if file_type == FILE_TYPE_FILE:
 				cmds.append("rm -f %s.*" % quote(os.path.splitext(path)[0]))
-			elif os.path.isdir(path):
-				cmds.append("rm -rf %s" % quote(path))
-			elif os.path.islink(path):
+			elif file_type == FILE_TYPE_LINK:
 				cmds.append("rm -f %s" % quote(path))
+			elif file_type == FILE_TYPE_DIR:
+				cmds.append("rm -rf %s" % quote(path))
+		cmds += removeEmptyDirs(os.path.dirname(path))
 		logger.info("cmds: %s", cmds)
 		return cmds
 
-	def __execFileMove(self, path, target_dir):
+	def __execFileMove(self, file_type, path, target_dir):
 		logger.info("path: %s, target_dir: %s", path, target_dir)
-		cmds = self.__changeFileOwner(path, target_dir)
-		if os.path.isfile(path):
+		cmds = ["mkdir -p %s" % quote(target_dir)]
+		if file_type == FILE_TYPE_FILE:
 			if "trashcan" in target_dir:
 				cmds.append("touch %s.*" % quote(os.path.splitext(path)[0]))
-			cmds.append("mkdir -p %s" % quote(target_dir))
 			cmds.append("mv %s.* %s" % (quote(os.path.splitext(path)[0]), quote(target_dir)))
-		elif os.path.isdir(path):
+		elif file_type == FILE_TYPE_LINK:
 			if "trashcan" in target_dir:
 				cmds.append("touch %s" % quote(path))
-			cmds.append("mkdir -p %s" % quote(target_dir))
-			cmds.append("mv %s %s" % (quote(path), quote(target_dir)))
-		elif os.path.islink(path):
-			cmds.append("mv %s %s" % (quote(path), quote(target_dir)))
+			cmds.append("mv %s %s/." % (quote(path), quote(target_dir)))
+		elif file_type == FILE_TYPE_DIR:
+			if "trashcan" in target_dir:
+				cmds.append("find %s -exec touch {} +" % quote(path))
+			cmds.append("%s %s %s" % (os.path.join(SCRIPTDIR, "mv.sh"), quote(path), quote(os.path.join(target_dir, os.path.basename(path)))))
+		cmds += removeEmptyDirs(path)
 		logger.info("cmds: %s", cmds)
 		return cmds
 
-	def __execFileCopy(self, path, target_dir):
+	def __execFileCopy(self, file_type, path, target_dir):
 		logger.info("path: %s, target_dir: %s", path, target_dir)
-		cmds = self.__changeFileOwner(path, target_dir)
-		if os.path.isfile(path):
-			cmds.append("mkdir -p %s" % quote(target_dir))
+		cmds = ["mkdir -p %s" % quote(target_dir)]
+		if file_type == FILE_TYPE_FILE:
 			cmds.append("cp -dp %s.* %s" % (quote(os.path.splitext(path)[0]), quote(target_dir)))
-		elif os.path.isdir(path):
-			cmds.append("mkdir -p %s" % quote(target_dir))
+		elif file_type == FILE_TYPE_LINK:
+			cmds.append("cp -dp  %s %s/." % (quote(path), quote(target_dir)))
+		elif file_type == FILE_TYPE_DIR:
 			cmds.append("cp -a %s %s" % (quote(path), quote(target_dir)))
-		elif os.path.islink(path):
-			cmds.append("cp -dp %s %s" % (quote(path), quote(target_dir)))
 		logger.info("cmds: %s", cmds)
 		return cmds
 
-	def __changeFileOwner(self, path, target_dir):
-		cmds = []
-		if MountCockpit.getInstance().getMountPoint("MVC", target_dir) != MountCockpit.getInstance().getMountPoint("MVC", path):
-			# need to change file ownership to match target filesystem file creation
-			tfile = quote(target_dir + "/owner_test")
-			sfile = quote(path) + ".*"
-			cmds.append("touch %s;ls -l %s | while read flags i owner group crap;do chown $owner:$group %s;done;rm %s" % (tfile, tfile, sfile, tfile))
-		logger.info("cmds: %s", cmds)
+	def __execFSTrim(self):
+		cmds = [os.path.join(SCRIPTDIR, "fstrim.sh")]
 		return cmds

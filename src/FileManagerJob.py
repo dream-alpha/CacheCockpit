@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -23,7 +23,7 @@ from Components.Task import Job, job_manager
 from .Debug import logger
 from .FileManagerCache import FileManagerCache
 from .FileManagerTask import FileManagerTask
-from .FileManagerUtils import FILE_OP_DELETE, FILE_IDX_NAME
+from .FileManagerUtils import FILE_OP_NONE, FILE_OP_FSTRIM, FILE_IDX_NAME
 
 
 class FileManagerJob(FileManagerCache):
@@ -39,19 +39,17 @@ class FileManagerJob(FileManagerCache):
 		logger.debug("lock_list: %s", lock_list)
 		return lock_list
 
-	def addJob(self, file_op, path, target_dir, file_op_callback):
+	def addJob(self, file_op, file_type, path, target_dir, file_op_callback):
 		logger.info("file_op: %s, path: %s, target_dir: %s, file_op_callback: %s", file_op, path, target_dir, file_op_callback)
 		job = Job(path)
 		job.file_op = file_op
-		FileManagerTask(job, file_op, path, target_dir, self.callbackJob, file_op_callback)
+		FileManagerTask(job, file_op, file_type, path, target_dir, self.callbackJob, file_op_callback)
 		job_manager.AddJob(job)
 
 	def callbackJob(self, file_op, path, target_dir, error, file_op_callback):
 		logger.info("file_op: %s, path: %s, target_dir: %s, error: %s, file_op_callback: %s", file_op, path, target_dir, error, file_op_callback)
 		if error:
 			job_manager.active_jobs = []
-		else:
-			self.execCacheOp(file_op, path, target_dir)
 		if file_op_callback:
 			try:
 				logger.info("calling file_op_callback")
@@ -70,12 +68,17 @@ class FileManagerJob(FileManagerCache):
 
 	def getJobsProgress(self):
 		file_name = ""
-		file_op = FILE_OP_DELETE
+		file_op = FILE_OP_NONE
 		jobs = self.getPendingJobs()
 		progress = 0
-		if jobs:
-			job = jobs[0]
-			file_name = self.getFile("recordings", job.name)[FILE_IDX_NAME]
-			file_op = job.file_op
-			progress = job.progress
-		return len(jobs), file_name, file_op, progress
+		files = 0
+		for ajob in jobs:
+			if ajob.file_op != FILE_OP_FSTRIM:
+				files += 1
+		if files:
+			ajob = jobs[0]
+			afile = self.getFile("recordings", ajob.name)
+			file_name = afile[FILE_IDX_NAME] if afile else ""
+			file_op = ajob.file_op
+			progress = ajob.progress
+		return files, file_name, file_op, progress

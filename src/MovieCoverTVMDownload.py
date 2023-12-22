@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -19,7 +19,6 @@
 # <http://www.gnu.org/licenses/>.
 
 
-import json
 import time
 from datetime import datetime, timedelta
 from .Debug import logger
@@ -33,8 +32,7 @@ class MovieCoverTVMDownload(WebRequests, MovieCoverUNIDownload):
 		WebRequests.__init__(self)
 		MovieCoverUNIDownload.__init__(self)
 
-	def getCoverUrl(self, channel_id, event_start, length):
-		content = []
+	def getCoverUrl(self, channel_id, _event_start):
 		day = datetime.now() - timedelta(days=1)
 		date_from = str(day.strftime("%Y-%m-%dT00:00:00"))
 		day = datetime.now() + timedelta(days=1)
@@ -42,42 +40,38 @@ class MovieCoverTVMDownload(WebRequests, MovieCoverUNIDownload):
 		logger.debug("date_from: %s, date_to: %s", date_from, date_to)
 		url = "http://capi.tvmovie.de/v1/broadcasts?fields=id,title,airTime,previewImage&channel=%s&date_from=%s&date_to=%s" % (channel_id, date_from, date_to)
 		logger.debug("url: %s", url)
-		r_content = self.getContent(url)
-		if r_content and "errMsg" not in r_content:
-			logger.debug("r_content: %s", r_content)
-			content = json.loads(r_content)
-			logger.debug("content: %s", content)
-		url = self.parseEvents("", content, event_start, length)
-		logger.debug("url: %s", url)
-		return url
+		return url, []
 
 	def parseEvents(self, _channel_id, content, event_start, length):
-		logger.info("...")
+		logger.info("event_start: %s", datetime.fromtimestamp(event_start))
 		logger.debug("content: %s", str(content))
 		cover_url = ""
-		cover_title = ""
-		title = "n/a"
-		if content and "channels" in content:
-			for channel in content["channels"]:
-				if "broadcasts" in channel:
-					for event in channel["broadcasts"]:
-						url = ""
-						if "title" in event:
-							title = event["title"]
-						starttime = datetime.fromtimestamp(0)
-						if "airTime" in event:
-							starttime = event["airTime"]
-							logger.debug("starttime: %s", starttime)
-						timestart = int(time.mktime(datetime.strptime(starttime, "%Y-%m-%d %H:%M:%S").timetuple()))
-						if "previewImage" in event:
-							image = str(event["previewImage"]["id"])
+		cover_title = "n/a"
+		if content:
+			channels = content.get("channels", [])
+			for channel in channels:
+				broadcasts = channel.get("broadcasts", [])
+				for event in broadcasts:
+					url = ""
+					title = event.get("title", "")
+					starttime = event.get("airTime", "")
+					logger.debug(">>> starttime: %s", starttime)
+					timestart = int(time.mktime(datetime.strptime(starttime, "%Y-%m-%d %H:%M:%S").timetuple()))
+					if "previewImage" in event:
+						image = str(event["previewImage"]["id"])
+						if image:
 							url = "https://images.tvmovie.de/760x430/North/%s" % image
-							logger.debug("url: %s", url)
+						logger.debug("url: %s", url)
 
-						if not self.findEvent(timestart, event_start, length):
-							cover_url = url
-							cover_title = title
-						else:
-							break
+					if not self.findEvent(timestart, event_start, length):
+						logger.debug(">>> saving: url: %s, title: %s", url, title)
+						cover_url = url
+						cover_title = title
+					else:
+						logger.debug(">>> break: url: %s, title: %s", cover_url, cover_title)
+						break
+				else:
+					cover_url = ""
+					cover_title = "n/a"
 		logger.debug("cover_title: %s, cover_url: %s", cover_title, cover_url)
 		return cover_url

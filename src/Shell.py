@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -23,6 +23,7 @@ from pipes import quote
 from enigma import eConsoleAppContainer
 from .Debug import logger
 from .DelayTimer import DelayTimer
+from .FileManagerUtils import FILE_OP_ERROR_ABORT
 
 
 class Shell():
@@ -34,38 +35,45 @@ class Shell():
 		self.container2 = eConsoleAppContainer()
 		self.container2_appClosed_conn = self.container2.appClosed.connect(self.finished2)
 
-	def executeShell(self, scripts, callback, wait_for_completion, *args):
-		logger.info("scripts: %s, callback: %s, args: %s", scripts, callback, args)
+	def execFileOpCallback(self, *__):
+		logger.error("should be overridden in child class")
+
+	def execShell(self, scripts, wait_for_completion, *args):
+		logger.info("scripts: %s, args: %s", scripts, args)
 		self.__abort = False
 		script1 = '; '.join(scripts[0])
 		self.script2 = '; '.join(scripts[1])
 		self.script3 = '; '.join(scripts[2])
-		self.__callback = callback
 		self.wait_for_completion = wait_for_completion
 		self.args = args
 		if scripts[0]:
 			self.container1.execute("sh -c " + quote(script1))
 			if not wait_for_completion:
-				DelayTimer(10, callback, *args)
+				DelayTimer(10, self.execFileOpCallback, *args)
 		else:
-			DelayTimer(10, callback, *args)
+			DelayTimer(10, self.execFileOpCallback, *args)
 
 	def finished1(self, retval=None):
-		logger.info("retval = %s", retval)
+		logger.info("retval = %s, __abort: %s", retval, self.__abort)
 		if not self.__abort and self.script2:
 			self.container2.execute("sh -c " + quote(self.script2))
 		elif self.__abort and self.script3:
 			self.container2.execute("sh -c " + quote(self.script3))
+		elif self.__abort:
+			file_op, path, target_dir, _error = self.args  # pylint: disable=W0632
+			self.execFileOpCallback(file_op, path, target_dir, FILE_OP_ERROR_ABORT)
 		else:
 			self.finished2()
 
 	def finished2(self, retval=None):
-		logger.info("retval = %s, self.__callback: %s", retval, self.__callback)
-		if self.__callback:
-			if self.wait_for_completion:
-				self.__callback(*self.args)
+		logger.info("retval = %s, __abort: %s", retval, self.__abort)
+		if self.__abort:
+			file_op, path, target_dir, _error = self.args  # pylint: disable=W0632
+			self.execFileOpCallback(file_op, path, target_dir, FILE_OP_ERROR_ABORT)
+		elif self.wait_for_completion:
+			self.execFileOpCallback(*self.args)
 
-	def abortShell(self):
+	def abortFileOp(self):
 		logger.info("...")
 		self.__abort = True
 		if self.container1 is not None and self.container1.running():

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -30,11 +30,11 @@ class FileManagerCacheSQL():
 		"directory TEXT", "file_type INTEGER", "path TEXT", "file_name TEXT", "file_ext TEXT", "name TEXT",
 		"event_start_time INTEGER", "recording_start_time INTEGER", "recording_stop_time INTEGER", "length INTEGER",
 		"description TEXT", "extended_description TEXT", "service_reference TEXT", "size INTEGER", "cuts TEXT",
-		"tags TEXT", "host_name TEXT"
+		"sort TEXT", "host_name TEXT"
 	]
 
 	COVER_COLUMNS = [
-		"file_name TEXT", "cover BLOB"
+		"path TEXT", "cover BLOB"
 	]
 
 	def __init__(self):
@@ -46,10 +46,10 @@ class FileManagerCacheSQL():
 	def sqlCreateTable(self):
 		columns = ", ".join(column for column in self.RECORDING_COLUMNS)
 		self.sql_conn.execute("""CREATE TABLE IF NOT EXISTS recordings ({})""".format(columns))
-		self.sql_conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_path ON recordings (path)""")
+		self.sql_conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_recordings ON recordings (path)""")
 		columns = ", ".join(column for column in self.COVER_COLUMNS)
 		self.sql_conn.execute("""CREATE TABLE IF NOT EXISTS covers ({})""".format(columns))
-		self.sql_conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_file_name ON covers (file_name)""")
+		self.sql_conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_covers ON covers (path)""")
 		self.sql_conn.text_factory = str
 		self.cursor = self.sql_conn.cursor()
 
@@ -62,8 +62,30 @@ class FileManagerCacheSQL():
 		self.cursor.execute("PRAGMA case_sensitive_like = true")
 		self.sql_conn.commit()
 
-	def sqlSelect(self, table, where, args=None):
-		sql = """SELECT * FROM %s WHERE %s""" % (table, where)
+	def sqlInitFile(self):
+		afile = []
+		for column in self.RECORDING_COLUMNS:
+			atype = column.split(" ", 1)[1]
+			if atype == "TEXT":
+				afile.append("")
+			elif atype == "INTEGER":
+				afile.append(0)
+		logger.debug("afile: %s", afile)
+		return afile
+
+	def sqlSelect(self, table, where, args):
+		if where:
+			sql = """SELECT * FROM %s WHERE %s""" % (table, where)
+		else:
+			sql = """SELECT * FROM %s""" % table
+		logger.debug("sql: %s, args: %s", sql, args)
+		self.cursor.execute(sql, args)
+		file_list = self.cursor.fetchall()
+		self.sql_conn.commit()
+		return file_list
+
+	def sqlSelectDistinct(self, table, cols, where, args):
+		sql = """SELECT DISTINCT %s FROM %s WHERE %s""" % (cols, table, where)
 		logger.debug("sql: %s, args: %s", sql, args)
 		self.cursor.execute(sql, args)
 		file_list = self.cursor.fetchall()

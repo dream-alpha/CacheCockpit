@@ -1,5 +1,4 @@
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/495cf6fc5be8434ca7b493ff88724433)](https://www.codacy.com/gh/dream-alpha/MountCockpit/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=dream-alpha/CacheCockpit&amp;utm_campaign=Badge_Grade)
-
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/495cf6fc5be8434ca7b493ff88724433)](https://www.codacy.com/gh/dream-alpha/CacheCockpit/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=dream-alpha/CacheCockpit&amp;utm_campaign=Badge_Grade)
 [![Gemfury](https://badge.fury.io/fp/gemfury.svg)](https://gemfury.com/f/partner)
 
 # CacheCockpit (CAC)

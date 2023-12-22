@@ -10,6 +10,9 @@ if [ "$1" = "remove" ]; then
 	if [ -f /etc/enigma2/.cachecockpit ]; then
 		rm /etc/enigma2/.cachecockpit > /dev/null 2>&1
 	fi
+
+	rm -rf /usr/script/CacheCockpit
+
 	echo "CacheCockpit plugin removed successfully."
 else
 	find /usr/lib/enigma2/python/Plugins/SystemPlugins/CacheCockpit -type f -name "*.pyo" -exec rm -f {} \; > /dev/null 2>&1

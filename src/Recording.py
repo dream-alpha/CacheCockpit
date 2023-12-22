@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -29,19 +29,30 @@ from .Debug import logger
 from .DelayTimer import DelayTimer
 from .ParserMetaFile import ParserMetaFile
 from .FileManager import FileManager
-from .FileManagerUtils import FILE_IDX_NAME, FILE_IDX_EVENT_START_TIME, FILE_IDX_LENGTH, FILE_OP_MOVE
+from .FileManagerUtils import FILE_IDX_NAME, FILE_IDX_EVENT_START_TIME, FILE_IDX_LENGTH
 from .MovieCoverDownload import MovieCoverDownload
-from .RecordingUtils import getSeriesDir
+from .FileManagerSeries import FileManagerSeries
 
 
-class Recording():
+instance = None
+
+
+class Recording(FileManagerSeries):
 
 	def __init__(self):
 		logger.info("...")
+		FileManagerSeries.__init__(self, FileManager.getInstance())
 		NavigationInstance.instance.RecordTimer.on_state_change.append(self.recordingEvent)
 		self.check4ActiveRecordings()
 		if config.plugins.moviecockpit.timer_autoclean.value:
 			NavigationInstance.instance.RecordTimer.cleanup()
+
+	@staticmethod
+	def getInstance():
+		global instance
+		if instance is None:
+			instance = Recording()
+		return instance
 
 	def updateXMetaFile(self, timer):
 		ParserMetaFile(timer.Filename).updateXMeta({
@@ -63,7 +74,7 @@ class Recording():
 
 			if timer.state == TimerEntry.StateRunning:
 				logger.debug("REC START for: %s, afterEvent: %s", timer.Filename, timer.afterEvent)
-				if Screens.Standby.inStandby and config.misc.standbyCounter.value == 1 and config.plugins.cachecockpit.archive_enable.value:
+				if Screens.Standby.inStandby and config.misc.standbyCounter.value == 1 and config.plugins.moviecockpit.archive_enable.value:
 					config.misc.isNextRecordTimerAfterEventActionAuto.value = False
 					config.misc.isNextRecordTimerAfterEventActionAuto.save()
 				self.updateXMetaFile(timer)
@@ -76,19 +87,7 @@ class Recording():
 				if os.path.exists(timer.Filename):
 					ParserMetaFile(timer.Filename).updateXMeta({"recording_stop_time": int(time.time())})
 					FileManager.getInstance().loadDatabaseFile(timer.Filename)
-					self.moveToSeriesFolder(timer.Filename)
-
-	def moveToSeriesFolder(self, path):
-		logger.info("path: %s", path)
-		dirname = ""
-		afile = FileManager.getInstance().getFile("recordings", path)
-		if afile:
-			name = afile[FILE_IDX_NAME]
-			dirname = getSeriesDir(name)
-		dirname = os.path.join(os.path.dirname(path), dirname)
-		if os.path.isdir(dirname):
-			logger.debug("moving: %s to %s", path, dirname)
-			FileManager.getInstance().execFileOp(FILE_OP_MOVE, path, dirname, None)
+					self.moveToSeriesDir(timer.Filename)
 
 	def check4ActiveRecordings(self):
 		logger.debug("...")
@@ -108,5 +107,10 @@ class Recording():
 				afile[FILE_IDX_NAME],
 				afile[FILE_IDX_EVENT_START_TIME],
 				afile[FILE_IDX_LENGTH],
+				"",
+				self.autoCoverDownloadCallback,
 			)
-			FileManager.getInstance().loadDatabaseCover(path)
+
+	def autoCoverDownloadCallback(self, path):
+		logger.info("path: %s", path)
+		FileManager.getInstance().loadDatabaseCover(path)

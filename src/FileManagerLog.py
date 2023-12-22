@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -34,6 +34,10 @@ class FileManagerLog():
 
 	def __init__(self, bookmarks):
 		self.bookmarks = bookmarks
+		if not os.path.isfile(LOG_FILE_NAME):
+			json_data = []
+			data = json.dumps(json_data, indent=4)
+			writeFile(LOG_FILE_NAME, data)
 
 	def getFile(self, _table, _path):
 		logger.error("should be overridden in child class")
@@ -84,6 +88,8 @@ class FileManagerLog():
 					aitem = str(aitem)
 				afile.append(aitem)
 			logger.info("afile: %s", afile)
-			if os.path.dirname(afile[FILE_IDX_PATH]) in dirs:
-				file_list.append(tuple(afile))
+			for adir in dirs:
+				if adir in self.bookmarks:
+					file_list.append(tuple(afile))
+					break
 		return file_list

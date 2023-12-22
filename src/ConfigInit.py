@@ -1,7 +1,7 @@
-#!/usr/bin/pyhon
+#!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -19,18 +19,14 @@
 # <http://www.gnu.org/licenses/>.
 
 
-from Components.config import config, ConfigDirectory, ConfigSelection, ConfigYesNo, ConfigSubsection, ConfigNothing, NoSave
-from .Debug import logger, log_levels
+from Components.config import config, ConfigYesNo, ConfigSubsection, ConfigSelection
+from .Debug import log_levels, logger, initLogging
 
 
 class ConfigInit():
-
 	def __init__(self):
 		logger.info("...")
 		config.plugins.cachecockpit = ConfigSubsection()
-		config.plugins.cachecockpit.fake_entry = NoSave(ConfigNothing())
-		config.plugins.cachecockpit.archive_enable = ConfigYesNo(default=False)
-		config.plugins.cachecockpit.archive_source_dir = ConfigDirectory(default="/media/hdd/movie")
-		config.plugins.cachecockpit.archive_target_dir = ConfigDirectory(default="/media/hdd/movie")
-		config.plugins.cachecockpit.debug_log_path = ConfigDirectory(default="/media/hdd")
+		config.plugins.cachecockpit.enabled = ConfigYesNo(default=True)
 		config.plugins.cachecockpit.debug_log_level = ConfigSelection(default="INFO", choices=list(log_levels.keys()))
+		initLogging()

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -32,7 +32,7 @@ class MovieCoverTVSDownload(WebRequests, MovieCoverUNIDownload):
 		WebRequests.__init__(self)
 		MovieCoverUNIDownload.__init__(self)
 
-	def getCoverUrl(self, channel_id, event_start, length):
+	def getCoverContent(self, channel_id, event_start):
 		logger.debug("channel_id: %s", channel_id)
 		content = []
 		for x in range(-1, 2):
@@ -42,30 +42,29 @@ class MovieCoverTVSDownload(WebRequests, MovieCoverUNIDownload):
 			r_content = self.getContent(content_url)
 			if r_content and "Error" not in r_content:
 				content.extend(json.loads(r_content))
-		cover_url = self.parseEvents("", content, event_start, length)
-		logger.debug("cover_url: %s", cover_url)
-		return cover_url
+		return content
 
 	def parseEvents(self, _channel_id, content, event_start, length):
 		logger.info("...")
 		cover_url = ""
 		cover_title = ""
-		title = "n/a"
 		for event in content:
 			# logger.debug("event: %s", str(event))
 			url = ""
-			timestart = 0
-			if "title" in event:
-				title = event["title"]
-			if "timestart" in event:
-				timestart = event["timestart"]
+			title = event.get("title", "n/a")
+			timestart = event.get("timestart", 0)
 			if "images" in event:
 				url = event["images"][0]["size4"]
 
 			if not self.findEvent(timestart, event_start, length):
+				logger.debug(">>> saving: url: %s, title: %s", url, title)
 				cover_title = title
 				cover_url = url
 			else:
+				logger.debug(">>> break: url: %s, title: %s", cover_url, cover_title)
 				break
+		else:
+			cover_url = ""
+			cover_title = "n/a"
 		logger.debug("cover_title: %s, cover_url: %s", cover_title, cover_url)
 		return cover_url

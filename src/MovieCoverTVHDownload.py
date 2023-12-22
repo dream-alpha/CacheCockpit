@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -19,7 +19,7 @@
 # <http://www.gnu.org/licenses/>.
 
 
-import json
+from datetime import datetime
 from .Debug import logger
 from .MovieCoverUNIDownload import MovieCoverUNIDownload
 from .WebRequests import WebRequests
@@ -31,42 +31,38 @@ class MovieCoverTVHDownload(WebRequests, MovieCoverUNIDownload):
 		WebRequests.__init__(self)
 		MovieCoverUNIDownload.__init__(self)
 
-	def getCoverUrl(self, channel_id, event_start, length):
-		content = []
+	def getCoverUrl(self, channel_id, event_start):
 		url = "http://mobile.hoerzu.de/programbystation"
-		logger.debug("url: %s", url)
-		r_content = self.getContent(url)
-		if r_content and "errMsg" not in r_content:
-			# logger.debug("r_content: %s", r_content)
-			content = json.loads(r_content)
-			# logger.debug("content: %s", content)
-		url = self.parseEvents(content, event_start, length, channel_id)
-		logger.debug("url: %s", url)
-		return url
+		data = []
+		data.append("channels: [%s]" % channel_id)
+		data.append("date: %s" % event_start)
+		params = {"data": data}
+		logger.debug("url: %s, params: %s", url, params)
+		return url, params
 
-	def parseEvents(self, content, event_start, length, channel_id):
+	def parseEvents(self, channel_id, content, event_start, length):
 		logger.info("...")
 		# logger.debug("content: %s", str(content))
 		cover_url = ""
-		cover_title = ""
-		title = "n/a"
+		cover_title = "n/a"
 		if content:
 			for events in content:
 				if str(events["id"]) == channel_id:
-					if "broadcasts" in events:
-						for event in events["broadcasts"]:
-							url = ""
-							if "title" in event:
-								title = event["title"]
-							if "startTime" in event:
-								timestart = event["startTime"]
-							if "pic" in event:
-								url = event["pic"]
-
-							if not self.findEvent(timestart, event_start, length):
-								cover_url = url
-								cover_title = title
-							else:
-								break
-		logger.debug("cover_title: %s, cover_url: %s", cover_title, cover_url)
+					broadcasts = events.get("broadcasts", [])
+					for event in broadcasts:
+						title = event.get("title", "n/a")
+						timestart = event.get("startTime", 0)
+						url = event.get("pic", "")
+						logger.debug(">>> timestart: %s, event_start: %s, length: %s", datetime.fromtimestamp(timestart), datetime.fromtimestamp(event_start), length)
+						if not self.findEvent(timestart, event_start, length):
+							logger.debug("saving: title: %s, url: %s", title, url)
+							cover_url = url
+							cover_title = title
+						else:
+							logger.debug(">>> break: url: %s, title: %s", cover_url, cover_title)
+							break
+					else:
+						cover_url = ""
+						cover_title = "n/a"
+			logger.debug(">>> cover_title: %s, cover_url: %s", cover_title, cover_url)
 		return cover_url

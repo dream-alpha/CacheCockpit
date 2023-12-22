@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 #
-# Copyright (C) 2018-2023 by dream-alpha
+# Copyright (C) 2018-2024 by dream-alpha
 #
 # In case of reuse of this source code please do not remove this copyright.
 #
@@ -48,12 +48,22 @@ class MovieCoverUNIDownload():
 		logger.debug("%s: %s", channel_id_name, channel_id)
 		return channel_id
 
-	def getCoverUrl(self, _channel_id, _event_start, _length):
+	def getCoverUrl(self, _channel_id, _event_start):
 		logger.error("should be overridden in child class")
 		return ""
 
+	def getCoverContent(self, channel_id, event_start):
+		content = []
+		url, params = self.getCoverUrl(channel_id, event_start)
+		r_content = self.getContent(url, params)
+		if r_content and "errMsg" not in r_content:
+			logger.debug("r_content: %s", r_content)
+			content = json.loads(r_content)
+			logger.debug("content: %s", content)
+		return content
+
 	def findEvent(self, timestart, event_start, length):
-		logger.info("timestart: %s, event_start: %s", datetime.fromtimestamp(timestart), datetime.fromtimestamp(event_start))
+		logger.info("timestart: %s, timestart: %s, event_start: %s", timestart, datetime.fromtimestamp(timestart), datetime.fromtimestamp(event_start))
 		middle = event_start + length / 2
 		logger.debug("timestart: %s, middle: %s", datetime.fromtimestamp(timestart), datetime.fromtimestamp(middle))
 		return timestart > middle
@@ -67,5 +77,8 @@ class MovieCoverUNIDownload():
 		cover_url = ""
 		channel_id = self.getChannelId(cover_source, service_ref)
 		if channel_id:
-			cover_url = self.getCoverUrl(channel_id, event_start, length)
+			content = self.getCoverContent(channel_id, event_start)
+			if content:
+				cover_url = self.parseEvents(channel_id, content, event_start, length)
+		logger.debug("cover_url: %s", cover_url)
 		return cover_url

@@ -1,6 +1,7 @@
 #!/bin/sh
 rm /etc/enigma2/cachecockpit.db
 touch /etc/enigma2/.cachecockpit
+chmod +x /usr/script/CacheCockpit/*.sh
 
 echo "***********************************"
 echo "*          CacheCockpit           *"
