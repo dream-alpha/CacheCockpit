@@ -22,74 +22,128 @@
 import os
 import json
 import six
+from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
 from .Debug import logger
 from .FileUtils import readFile, writeFile
-from .FileManagerUtils import FILE_TYPE_FILE, FILE_TYPE_DELETED, FILE_IDX_TYPE, FILE_IDX_DIR, FILE_IDX_PATH, FILE_IDX_CUTS
+from .FileManagerUtils import FILE_TYPE_DELETED
+from .FileManagerUtils import FILE_IDX_BOOKMARK, FILE_IDX_PATH, FILE_IDX_DIR, FILE_IDX_FILENAME, FILE_IDX_EXT,\
+	FILE_IDX_RELPATH, FILE_IDX_TYPE, FILE_IDX_NAME, FILE_IDX_EVENT_START_TIME, FILE_IDX_RECORDING_START_TIME,\
+	FILE_IDX_RELDIR, FILE_IDX_RECORDING_STOP_TIME, FILE_IDX_LENGTH, FILE_IDX_DESCRIPTION,\
+	FILE_IDX_EXTENDED_DESCRIPTION, FILE_IDX_SERVICE_REFERENCE, FILE_IDX_SIZE, FILE_IDX_CUTS,\
+	FILE_IDX_SORT, FILE_IDX_HOSTNAME
+from .FileManagerCacheSQL import FileManagerCacheSQL
 
 
 LOG_FILE_NAME = "/etc/enigma2/moviecockpit_log.json"
 
 
-class FileManagerLog():
+class FileManagerLog(FileManagerCacheSQL):
 
 	def __init__(self, bookmarks):
+		FileManagerCacheSQL.__init__(self)
 		self.bookmarks = bookmarks
 		if not os.path.isfile(LOG_FILE_NAME):
 			json_data = []
-			data = json.dumps(json_data, indent=4)
-			writeFile(LOG_FILE_NAME, data)
+			self.writeLogFile(json_data)
 
-	def getFile(self, _table, _path):
-		logger.error("should be overridden in child class")
-		afile = []
-		return afile
+	def writeLogFile(self, json_data):
+		data = json.dumps(json_data, indent=4)
+		writeFile(LOG_FILE_NAME, data)
 
-	def handleLogEntry(self, table, path):
-		logger.info("table: %s, path: %s", table, path)
+	def readLogFile(self):
 		data = readFile(LOG_FILE_NAME)
 		json_data = json.loads(data)
-		afile = self.getFile(table, path)
-		if afile and afile[FILE_IDX_TYPE] == FILE_TYPE_FILE:
-			self.addLogEntry(list(afile), json_data)
-		else:
-			self.deleteLogEntry(path, json_data)
+		return json_data
 
-	def deleteLogEntry(self, path, json_data):
-		logger.info("path: %s, json_data: %s", path, json_data)
+	def deleteLogEntry(self, path, json_data=""):
+		logger.info("path: %s", path)
+		if not json_data:
+			json_data = self.readLogFile()
+		file_name = os.path.basename(path)
 		for afile in json_data:
-			if afile[FILE_IDX_PATH] == path:
+			# logger.debug("file_name: %s, afile[FILE_IDX_RELPATH]: %s", file_name, afile[FILE_IDX_RELPATH])
+			if afile[FILE_IDX_FILENAME] + afile[FILE_IDX_EXT] == file_name:
 				json_data.remove(afile)
 				break
-		data = json.dumps(json_data, indent=4)
-		writeFile(LOG_FILE_NAME, data)
+		self.writeLogFile(json_data)
 
-	def addLogEntry(self, afile, json_data):
+	def addLogEntry(self, file_list, json_data=""):
 		logger.info("...")
-		afile[FILE_IDX_CUTS] = ""
-		afile[FILE_IDX_DIR] = afile[FILE_IDX_DIR].replace("/trashcan", "")
-		afile[FILE_IDX_PATH] = afile[FILE_IDX_PATH].replace("/trashcan", "")
-		afile[FILE_IDX_TYPE] = FILE_TYPE_DELETED
-		json_data.append(afile)
-		data = json.dumps(json_data, indent=4)
-		writeFile(LOG_FILE_NAME, data)
+		if not json_data:
+			json_data = self.readLogFile()
 
-	def getLogFileList(self, dirs):
-		if not dirs:
-			dirs = self.bookmarks
-		logger.info("dirs: %s", dirs)
+		for afile in file_list:
+			path = afile[FILE_IDX_PATH].replace("/trashcan", "")
+			bookmark = MountCockpit.getInstance().getBookmark("MVC", path)
+			path = os.path.normpath(os.path.join(bookmark, os.path.basename(path)))
+			afile = list(afile)
+			afile[FILE_IDX_CUTS] = ""
+			afile[FILE_IDX_BOOKMARK] = bookmark
+			afile[FILE_IDX_DIR] = bookmark
+			afile[FILE_IDX_RELDIR] = "/"
+			afile[FILE_IDX_PATH] = path
+			afile[FILE_IDX_RELPATH] = os.path.basename(path)
+			afile[FILE_IDX_TYPE] = FILE_TYPE_DELETED
+			json_data.append(afile)
+		self.writeLogFile(json_data)
+
+	def convertLogLayout(self, afile):
+		logger.info("...")
+		bfile = self.sqlInitFile()
+		bfile[FILE_IDX_TYPE] = afile[1]
+		bfile[FILE_IDX_BOOKMARK] = MountCockpit.getInstance().getBookmark("MVC", afile[2])
+		bfile[FILE_IDX_PATH] = afile[2]
+		bfile[FILE_IDX_RELPATH] = os.path.abspath(os.path.relpath(afile[2], bfile[FILE_IDX_BOOKMARK]))
+		bfile[FILE_IDX_DIR] = afile[0]
+		bfile[FILE_IDX_RELDIR] = os.path.abspath(os.path.relpath(afile[0], bfile[FILE_IDX_BOOKMARK]))
+		bfile[FILE_IDX_FILENAME] = afile[3]
+		bfile[FILE_IDX_EXT] = afile[4]
+		bfile[FILE_IDX_NAME] = afile[5]
+		bfile[FILE_IDX_EVENT_START_TIME] = afile[6]
+		bfile[FILE_IDX_RECORDING_START_TIME] = afile[7]
+		bfile[FILE_IDX_RECORDING_STOP_TIME] = afile[8]
+		bfile[FILE_IDX_LENGTH] = afile[9]
+		bfile[FILE_IDX_DESCRIPTION] = afile[10]
+		bfile[FILE_IDX_EXTENDED_DESCRIPTION] = afile[11]
+		bfile[FILE_IDX_SERVICE_REFERENCE] = afile[12]
+		bfile[FILE_IDX_SIZE] = afile[13]
+		bfile[FILE_IDX_CUTS] = afile[14]
+		bfile[FILE_IDX_SORT] = afile[15]
+		if len(afile) > 16:
+			bfile[FILE_IDX_HOSTNAME] = afile[16]
+		return bfile
+
+	def getLogFileList(self, adir):
+		logger.info("dir: %s", adir)
+		save_log_list = False
+		new_json_data = []
 		data = readFile(LOG_FILE_NAME)
 		json_data = json.loads(data)
 		file_list = []
 		for json_file in json_data:
-			logger.info("json_file: %s", json_file)
+			# logger.info("json_file: %s", json_file)
 			afile = []
 			for aitem in json_file:
 				if isinstance(aitem, six.text_type):  # pylint: disable=E0602
 					aitem = str(aitem)
 				afile.append(aitem)
 			logger.info("afile: %s", afile)
-			for adir in dirs:
-				if adir in self.bookmarks:
-					file_list.append(tuple(afile))
-					break
+			if len(afile) != len(self.RECORDING_COLUMNS):
+				afile = self.convertLogLayout(afile)
+				save_log_list = True
+
+			path = afile[FILE_IDX_PATH]
+			bookmark = MountCockpit.getInstance().getBookmark("MVC", path)
+			path = os.path.normpath(os.path.join(bookmark, os.path.basename(path)))
+			afile[FILE_IDX_BOOKMARK] = bookmark
+			afile[FILE_IDX_DIR] = bookmark
+			afile[FILE_IDX_RELDIR] = "/"
+			afile[FILE_IDX_PATH] = path
+			afile[FILE_IDX_RELPATH] = os.path.basename(path)
+			new_json_data.append(afile)
+
+			if adir in self.bookmarks:
+				file_list.append(tuple(afile))
+		if save_log_list:
+			self.writeLogFile(new_json_data)
 		return file_list

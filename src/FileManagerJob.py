@@ -24,6 +24,7 @@ from .Debug import logger
 from .FileManagerCache import FileManagerCache
 from .FileManagerTask import FileManagerTask
 from .FileManagerUtils import FILE_OP_NONE, FILE_OP_FSTRIM, FILE_IDX_NAME
+from .DelayTimer import DelayTimer
 
 
 class FileManagerJob(FileManagerCache):
@@ -53,7 +54,7 @@ class FileManagerJob(FileManagerCache):
 		if file_op_callback:
 			try:
 				logger.info("calling file_op_callback")
-				file_op_callback(file_op, path, target_dir, error)
+				DelayTimer(100, file_op_callback, file_op, path, target_dir, error)
 			except Exception as e:
 				logger.info("file_op_callback: %s, exception: %s", file_op_callback, e)
 

@@ -27,7 +27,7 @@ from .FileManagerUtils import SQL_DB_NAME
 class FileManagerCacheSQL():
 
 	RECORDING_COLUMNS = [
-		"directory TEXT", "file_type INTEGER", "path TEXT", "file_name TEXT", "file_ext TEXT", "name TEXT",
+		"file_type INTEGER", "bookmark TEXT", "path TEXT", "rel_path TEXT", "directory TEXT", "rel_dir TEXT", "file_name TEXT", "file_ext TEXT", "name TEXT",
 		"event_start_time INTEGER", "recording_start_time INTEGER", "recording_stop_time INTEGER", "length INTEGER",
 		"description TEXT", "extended_description TEXT", "service_reference TEXT", "size INTEGER", "cuts TEXT",
 		"sort TEXT", "host_name TEXT"

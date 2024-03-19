@@ -20,7 +20,6 @@
 
 
 import os
-from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
 from .Debug import logger
 from .FileManagerUtils import FILE_IDX_NAME, FILE_OP_MOVE
 
@@ -56,8 +55,8 @@ class FileManagerSeries():
 		logger.info("dirname: %s", dirname)
 		return dirname
 
-	def checkSeriesDir(self, name, dirs):
-		dir_names = self.file_manager.getDirNamesList(dirs)
+	def checkSeriesDir(self, name, adir):
+		dir_names = self.file_manager.getDirNamesList(adir)
 		for dir_name in dir_names:
 			if name.startswith(dir_name):
 				logger.debug("dir_name: %s", dir_name)
@@ -71,17 +70,12 @@ class FileManagerSeries():
 		if path not in self.block_paths:
 			afile = self.file_manager.getFile("recordings", path)
 			if afile:
-				all_dirs = MountCockpit.getInstance().getVirtualDirs("MVC", [os.path.dirname(path)])
-				dirname = self.checkSeriesDir(afile[FILE_IDX_NAME], all_dirs)
+				adir = os.path.dirname(path)
+				dirname = self.checkSeriesDir(afile[FILE_IDX_NAME], adir)
 				if dirname:
-					for adir in all_dirs:
-						logger.debug("adir: %s", adir)
-						bdir = os.path.join(adir, dirname)
-						if os.path.isdir(bdir):
-							dstdir = os.path.join(os.path.dirname(path), dirname)
-							logger.debug("moving: %s to %s", path, dstdir)
-							self.file_manager.execFileOp(FILE_OP_MOVE, path, dstdir, self.execFileOpCallback)
-							break
+					dstdir = os.path.join(adir, dirname)
+					logger.debug("moving: %s to %s", path, dstdir)
+					self.file_manager.execFileOp(FILE_OP_MOVE, path, dstdir, self.execFileOpCallback)
 
 	def execFileOpCallback(self, file_op, path, target_dir, error):
 		logger.info("file_op: %s, path: %s, target_dir: %s, error: %s", file_op, path, target_dir, error)

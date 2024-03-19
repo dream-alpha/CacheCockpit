@@ -42,38 +42,38 @@ def removeEmptyDirs(src_path):
 	return cmds
 
 
-class FileOp(Shell):
+class FileManagerDisk(Shell):
 
 	def __init__(self):
 		Shell.__init__(self)
 
-	def execFileOpCallback(self, _file_op, _path, _target_dir, _error):  # pylint: disable=W0221
+	def execDiskOpCallback(self, _file_op, _path, _target_dir, _error):  # pylint: disable=W0221
 		logger.error("should be overridden in child class")
 
-	def execFileOp(self, file_op, file_type, path, target_dir):
+	def execDiskOp(self, file_op, file_type, path, target_dir):
 		error = FILE_OP_ERROR_NONE
 		cmds = [[], [], []]  # first execution script, second execution script, abort cleanup script
 		wait_for_completion = True
 		logger.info("file_op: %s, path: %s, target_dir: %s" , file_op, path, target_dir)
 		if file_op == FILE_OP_DELETE:
-			cmds[0] = self.__execFileDelete(file_type, path)
+			cmds[0] = self.execFileDelete(file_type, path)
 		elif file_op == FILE_OP_MOVE:
 			if MountCockpit.getInstance().sameMountPoint("MVC", path, target_dir):
-				cmds[0] = self.__execFileMove(file_type, path, target_dir)
+				cmds[0] = self.execFileMove(file_type, path, target_dir)
 				wait_for_completion = False
 			else:
-				cmds[0] = self.__execFileCopy(file_type, path, target_dir)
-				cmds[1] = self.__execFileDelete(file_type, path)
-				cmds[2] = self.__execFileDelete(file_type, os.path.join(target_dir, os.path.basename(path)), force=True)
+				cmds[0] = self.execFileCopy(file_type, path, target_dir)
+				cmds[1] = self.execFileDelete(file_type, path)
+				cmds[2] = self.execFileDelete(file_type, os.path.join(target_dir, os.path.basename(path)), force=True)
 		elif file_op == FILE_OP_COPY:
-			cmds[0] = self.__execFileCopy(file_type, path, target_dir)
-			cmds[2] = self.__execFileDelete(file_type, os.path.join(target_dir, os.path.basename(path)), force=True)
+			cmds[0] = self.execFileCopy(file_type, path, target_dir)
+			cmds[2] = self.execFileDelete(file_type, os.path.join(target_dir, os.path.basename(path)), force=True)
 		elif file_op == FILE_OP_FSTRIM:
-			cmds[0] = self.__execFSTrim()
+			cmds[0] = self.execFSTrim()
 		logger.info("wait_for_completion: %s, cmds: %s", wait_for_completion, cmds)
 		self.execShell(cmds, wait_for_completion, file_op, path, target_dir, error)
 
-	def __execFileDelete(self, file_type, path, force=False):
+	def execFileDelete(self, file_type, path, force=False):
 		logger.info("path: %s, force: %s", path, force)
 		cmds = []
 		if force:
@@ -89,7 +89,7 @@ class FileOp(Shell):
 		logger.info("cmds: %s", cmds)
 		return cmds
 
-	def __execFileMove(self, file_type, path, target_dir):
+	def execFileMove(self, file_type, path, target_dir):
 		logger.info("path: %s, target_dir: %s", path, target_dir)
 		cmds = ["mkdir -p %s" % quote(target_dir)]
 		if file_type == FILE_TYPE_FILE:
@@ -108,7 +108,7 @@ class FileOp(Shell):
 		logger.info("cmds: %s", cmds)
 		return cmds
 
-	def __execFileCopy(self, file_type, path, target_dir):
+	def execFileCopy(self, file_type, path, target_dir):
 		logger.info("path: %s, target_dir: %s", path, target_dir)
 		cmds = ["mkdir -p %s" % quote(target_dir)]
 		if file_type == FILE_TYPE_FILE:
@@ -120,6 +120,6 @@ class FileOp(Shell):
 		logger.info("cmds: %s", cmds)
 		return cmds
 
-	def __execFSTrim(self):
+	def execFSTrim(self):
 		cmds = [os.path.join(SCRIPTDIR, "fstrim.sh")]
 		return cmds

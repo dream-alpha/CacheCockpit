@@ -36,32 +36,32 @@ class SourceSelector():
 		request_client_thread.join()
 		return request_client_thread.reply
 
-	def getFileList(self, dirs, top_level, recursively=False):
-		file_list = self.csel.getFileList(dirs, recursively)
+	def getFileList(self, adir, top_level, recursive=False):
+		file_list = self.csel.getFileList(adir, recursive)
 		if config.plugins.socketcockpit.client.value and self.online_monitor.isOnline():
 			if top_level:
-				dirs = []
-			file_list2 = self.sendRequest("multiple:FileManager().getFileList(%s, %s)" % (dirs, recursively))
+				adir = []
+			file_list2 = self.sendRequest("multiple:FileManager().getFileList(%s, %s)" % (adir, recursive))
 			if file_list2:
 				file_list += file_list2
 		return file_list
 
-	def getLogFileList(self, dirs, top_level):
-		file_list = self.csel.getLogFileList(dirs)
+	def getLogFileList(self, adir, top_level):
+		file_list = self.csel.getLogFileList(adir)
 		if config.plugins.socketcockpit.client.value and self.online_monitor.isOnline():
 			if top_level:
-				dirs = []
-			file_list2 = self.sendRequest("multiple:FileManager().getLogFileList(%s)" % dirs)
+				adir = []
+			file_list2 = self.sendRequest("multiple:FileManager().getLogFileList(%s)" % adir)
 			if file_list2:
 				file_list += file_list2
 		return file_list
 
-	def getDirList(self, dirs, top_level):
-		file_list = self.csel.getDirList(dirs)
+	def getDirList(self, adir, top_level):
+		file_list = self.csel.getDirList(adir)
 		if config.plugins.socketcockpit.client.value and self.online_monitor.isOnline():
 			if top_level:
-				dirs = []
-			file_list2 = self.sendRequest("multiple:FileManager().getDirList(%s)" % dirs)
+				adir = []
+			file_list2 = self.sendRequest("multiple:FileManager().getDirList(%s)" % adir)
 			if file_list2:
 				file_list += file_list2
 		return file_list

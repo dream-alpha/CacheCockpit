@@ -23,12 +23,15 @@ import os
 from time import time
 from Components.config import config
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
+from Plugins.SystemPlugins.MountCockpit.MountUtils import getBookmarkSpaceInfo
 from .Debug import logger
-from .FileManagerUtils import FILE_TYPE_FILE, FILE_IDX_TYPE, FILE_IDX_PATH
-from .FileManagerUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_FSTRIM, FILE_OP_ERROR_NONE
+from .FileManagerUtils import FILE_TYPE_FILE
+from .FileManagerUtils import FILE_IDX_TYPE, FILE_IDX_PATH, FILE_IDX_RELPATH
+from .FileManagerUtils import FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY, FILE_OP_FSTRIM, FILE_OP_ERROR_NONE, FILE_OP_ERROR_NO_DISKSPACE
 from .RecordingUtils import isRecording
 from .FileManagerJob import FileManagerJob
 from .SourceSelector import SourceSelector
+from .PathUtils import getArchiveTarget, getMoveTarget, getMoveToTrashcanTarget
 
 
 instance = None
@@ -48,14 +51,65 @@ class FileManager(FileManagerJob):
 		return instance
 
 	def execFileOp(self, file_op, path, target_dir=None, file_op_callback=None):
+
+		def checkFreeSpace(path, target_dir):
+			logger.info("path: %s, target_dir: %s", path, target_dir)
+			error = FILE_OP_ERROR_NONE
+			free = getBookmarkSpaceInfo(MountCockpit.getInstance().getBookmark("MVC", target_dir))[2]
+			size = self.getCountSize(path)[1]
+			logger.debug("size: %s, free: %s", size, free)
+			if free * 0.8 < size:
+				logger.info("not enough space left: size: %s, free: %s", size, free)
+				error = FILE_OP_ERROR_NO_DISKSPACE
+			return error
+
 		logger.info("file_op: %s, path: %s, target_dir: %s", file_op, path, target_dir)
+		self.file_op_callback = file_op_callback
+		error = FILE_OP_ERROR_NONE
 		afile = self.source_selector.getFile("recordings", path)
 		if afile:
-			self.addJob(file_op, afile[FILE_IDX_TYPE], path, target_dir, file_op_callback)
+			file_type = afile[FILE_IDX_TYPE]
+			rel_path = afile[FILE_IDX_RELPATH]
+			if file_op == FILE_OP_DELETE:
+				afiles = self.sqlSelect("recordings", "rel_path = ?", [rel_path])
+				for afile in afiles:
+					path = afile[FILE_IDX_PATH]
+					file_type = afile[FILE_IDX_TYPE]
+					if "trashcan" in path:
+						self.addJob(FILE_OP_DELETE, file_type, path, target_dir, file_op_callback)
+					else:
+						target_path = getMoveToTrashcanTarget(path)
+						self.addJob(FILE_OP_MOVE, file_type, path, target_path, file_op_callback)
+			elif file_op == FILE_OP_MOVE:
+				if MountCockpit.getInstance().sameMountPoint("MVC", path, target_dir):
+					afiles = self.sqlSelect("recordings", "rel_path = ?", [rel_path])
+					logger.debug("afiles: %s", afiles)
+					for afile in afiles:
+						path = afile[FILE_IDX_PATH]
+						target_path = getMoveTarget(path, target_dir)
+						logger.debug("adding: %s > %s", path, target_path)
+
+						self.addJob(file_op, file_type, path, target_path, file_op_callback)
+				else:
+					self.error = checkFreeSpace(path, target_dir)
+					if not error:
+						self.addJob(file_op, file_type, path, target_dir, file_op_callback)
+					else:
+						self.execFileOpCallback(file_op, path, target_dir, error)
+			elif file_op == FILE_OP_COPY:
+				self.error = checkFreeSpace(path, target_dir)
+				if not error:
+					self.addJob(file_op, file_type, path, target_dir, file_op_callback)
+				else:
+					self.execFileOpCallback(file_op, path, target_dir, error)
 		else:
-			logger.error("path: %s, afile: %s", path, afile)
-			if file_op_callback:
-				file_op_callback(file_op, path, target_dir, FILE_OP_ERROR_NONE)
+			if file_op == FILE_OP_DELETE:
+				self.addJob(file_op, FILE_TYPE_FILE, path, target_dir, file_op_callback)
+
+	def execFileOpCallback(self, file_op, path, target_dir, error):
+		logger.info("file_op: %s, path: %s, target_dir: %s, error: %s", file_op, path, target_dir, error)
+		if self.file_op_callback:
+			self.file_op_callback(file_op, path, target_dir, FILE_OP_ERROR_NONE)
 
 	def archive(self, archive_source_dir="", archive_target_dir="", callback=None):
 
@@ -80,12 +134,7 @@ class FileManager(FileManagerJob):
 						logger.debug("afile: %s", afile)
 						path = afile[FILE_IDX_PATH]
 						if afile[FILE_IDX_TYPE] == FILE_TYPE_FILE and not isRecording(path) and "trashcan" not in path and not isLink(path):
-							logger.debug("path: %s", path)
-							src_bookmark = MountCockpit.getInstance().getBookmark("MVC", path)
-							src_sub_dir = os.path.dirname(os.path.relpath(path, src_bookmark))
-							dst_bookmark = MountCockpit.getInstance().getBookmark("MVC", archive_target_dir)
-							target_dir = os.path.normpath(os.path.join(dst_bookmark, src_sub_dir))
-							logger.debug("target_dir: %s", target_dir)
+							target_dir = getArchiveTarget(path, archive_target_dir)
 							self.addJob(FILE_OP_MOVE, afile[FILE_IDX_TYPE], path, target_dir, callback)
 							archive_files += 1
 					if archive_files:
@@ -103,19 +152,18 @@ class FileManager(FileManagerJob):
 		deleted_files = 0
 		now = time()
 		trashcan_dir = os.path.join(MountCockpit.getInstance().getHomeDir("MVC"), "trashcan")
-		all_dirs = MountCockpit.getInstance().getVirtualDirs("MVC", [trashcan_dir])
-		for adir in all_dirs:
-			file_list = self.getFileList([adir], True)
-			for afile in file_list:
-				path = afile[FILE_IDX_PATH]
-				file_type = afile[FILE_IDX_TYPE]
-				st_mtime = 0
-				if os.path.exists(path):
-					st_mtime = os.stat(path).st_mtime
-				if now > st_mtime + 24 * 60 * 60 * retention:
-					logger.info("path: %s", path)
-					deleted_files += 1
-					self.addJob(FILE_OP_DELETE, file_type, path, None, callback)
+		file_list = self.getMovieFileList(trashcan_dir, True, True)
+		file_list += self.getMovieDirList(trashcan_dir, True)
+		for afile in file_list:
+			path = afile[FILE_IDX_PATH]
+			file_type = afile[FILE_IDX_TYPE]
+			st_mtime = 0
+			if os.path.exists(path):
+				st_mtime = os.stat(path).st_mtime
+			if now > st_mtime + 24 * 60 * 60 * retention:
+				logger.info("path: %s", path)
+				deleted_files += 1
+				self.addJob(FILE_OP_DELETE, file_type, path, None, callback)
 		if deleted_files:
 			self.addJob(FILE_OP_FSTRIM, None, "", "", None)
 		logger.info("deleted_files: %d", deleted_files)
@@ -126,14 +174,14 @@ class FileManager(FileManagerJob):
 	def getMovieRecordings(self):
 		return self.source_selector.getRecordings()
 
-	def getMovieDirList(self, dirs, top_level=False):
-		return self.source_selector.getDirList(dirs, top_level)
+	def getMovieDirList(self, adir, top_level=False):
+		return self.source_selector.getDirList(adir, top_level)
 
-	def getMovieFileList(self, dirs, top_level=False, recursively=False):
-		return self.source_selector.getFileList(dirs, top_level, recursively)
+	def getMovieFileList(self, adir, top_level=False, recursive=False):
+		return self.source_selector.getFileList(adir, top_level, recursive)
 
-	def getMovieLogFileList(self, dirs, top_level=False):
-		return self.source_selector.getLogFileList(dirs, top_level)
+	def getMovieLogFileList(self, adir, top_level=False):
+		return self.source_selector.getLogFileList(adir, top_level)
 
 	def getMovieCountSize(self, path):
 		return self.source_selector.getCountSize(path)

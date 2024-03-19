@@ -27,16 +27,15 @@ import six.moves.cPickle as cPickle
 from Components.config import config
 from Plugins.SystemPlugins.MountCockpit.MountCockpit import MountCockpit
 from .Debug import logger
-from .FileManagerCacheSQL import FileManagerCacheSQL
 from .ParserEitFile import ParserEitFile
 from .ParserMetaFile import ParserMetaFile
 from .ServiceUtils import EXT_TS, ALL_VIDEO
 from .FileUtils import readFile, deleteFile
 from .DelayTimer import DelayTimer
 from .FileManagerUtils import SQL_DB_NAME, FILE_TYPE_FILE, FILE_TYPE_DIR, FILE_TYPE_LINK
-from .FileManagerUtils import FILE_IDX_PATH, FILE_IDX_DIR, FILE_IDX_FILENAME, FILE_IDX_EXT,\
-	FILE_IDX_TYPE, FILE_IDX_NAME, FILE_IDX_EVENT_START_TIME, FILE_IDX_RECORDING_START_TIME,\
-	FILE_IDX_RECORDING_STOP_TIME, FILE_IDX_LENGTH, FILE_IDX_DESCRIPTION,\
+from .FileManagerUtils import FILE_IDX_BOOKMARK, FILE_IDX_PATH, FILE_IDX_DIR, FILE_IDX_FILENAME, FILE_IDX_EXT,\
+	FILE_IDX_RELPATH, FILE_IDX_TYPE, FILE_IDX_NAME, FILE_IDX_EVENT_START_TIME, FILE_IDX_RECORDING_START_TIME,\
+	FILE_IDX_RELDIR, FILE_IDX_RECORDING_STOP_TIME, FILE_IDX_LENGTH, FILE_IDX_DESCRIPTION,\
 	FILE_IDX_EXTENDED_DESCRIPTION, FILE_IDX_SERVICE_REFERENCE, FILE_IDX_SIZE, FILE_IDX_CUTS,\
 	FILE_IDX_SORT, FILE_IDX_HOSTNAME
 from .FileManagerUtils import FILE_OP_LOAD, FILE_OP_DELETE, FILE_OP_MOVE, FILE_OP_COPY
@@ -46,14 +45,13 @@ from .CutListUtils import unpackCutList
 from .RecordingUtils import getRecordings
 
 
-class FileManagerCache(FileManagerLog, FileManagerCacheSQL):
+class FileManagerCache(FileManagerLog):
 
 	def __init__(self):
 		logger.info("...")
 		self.database_loaded = False
 		self.database_loaded_callback = None
 		self.database_changed_callback = None
-		FileManagerCacheSQL.__init__(self)
 		self.epglang = config.plugins.moviecockpit.epglang.value
 		self.bookmarks = MountCockpit.getInstance().getMountedBookmarks("MVC")
 		FileManagerLog.__init__(self, self.bookmarks)
@@ -90,12 +88,17 @@ class FileManagerCache(FileManagerLog, FileManagerCacheSQL):
 
 	# row functions
 
-	def execCacheFileOp(self, file_op, src_path, dst_dir):
+	def execCacheOp(self, file_op, src_path, dst_dir):
 		logger.info("file_op: %s, src_path: %s, dst_dir: %s", file_op, src_path, dst_dir)
 		if file_op == FILE_OP_DELETE:
-			self.handleLogEntry("recordings", src_path)
-			self.delete("recordings", src_path)
-			self.delete("covers", os.path.basename(src_path))
+			afile = self.getFile("recordings", src_path)
+			if afile:
+				del_list = self.sqlSelect("recordings", "path LIKE ? AND file_type = ?", [src_path + "%", FILE_TYPE_FILE])
+				self.addLogEntry(del_list)
+				self.delete("recordings", src_path)
+				self.delete("covers", os.path.basename(src_path))
+			else:
+				self.deleteLogEntry(src_path)
 		elif file_op == FILE_OP_MOVE:
 			self.move(src_path, dst_dir)
 		elif file_op == FILE_OP_COPY:
@@ -113,7 +116,8 @@ class FileManagerCache(FileManagerLog, FileManagerCacheSQL):
 	def removeEmptyDirs(self, path):
 		logger.info("path: %s", path)
 		empty = not self.sqlSelect("recordings", "path LIKE ?", [path + "/%"])
-		while empty and os.path.dirname(path) not in self.bookmarks:
+		while empty and path not in self.bookmarks and os.path.dirname(path) not in self.bookmarks:
+			logger.debug("removing: %s", path)
 			self.sqlDelete("recordings", "path = ?", [path])
 			path = os.path.dirname(path)
 
@@ -121,12 +125,13 @@ class FileManagerCache(FileManagerLog, FileManagerCacheSQL):
 		logger.debug("path: %s", path)
 		if table == "recordings":
 			afile = self.getFile(table, path)
-			if afile[FILE_IDX_TYPE] == FILE_TYPE_DIR:
-				self.sqlDelete(table, "path LIKE ?", [path + "%"])
-				self.sqlDelete("covers", "path LIKE ?", [os.path.basename(path)])
-			else:
-				self.sqlDelete(table, "path = ?", [path])
-			self.removeEmptyDirs(os.path.dirname(path))
+			if afile:
+				if afile[FILE_IDX_TYPE] == FILE_TYPE_DIR:
+					self.sqlDelete(table, "path LIKE ?", [path + "%"])
+					self.sqlDelete("covers", "path LIKE ?", [os.path.basename(path)])
+				else:
+					self.sqlDelete(table, "path = ?", [path])
+				self.removeEmptyDirs(os.path.dirname(path))
 		else:
 			self.sqlDelete(table, "path LIKE ?", [path + "%"])
 
@@ -145,14 +150,21 @@ class FileManagerCache(FileManagerLog, FileManagerCacheSQL):
 					logger.error("invalid column key: %s", key)
 			self.add("recordings", afile)
 
+	def updateFilePaths(self, path, afile):
+		logger.info("path: %s, afile: %s", path, afile)
+		afile[FILE_IDX_DIR] = os.path.dirname(path)
+		afile[FILE_IDX_PATH] = path
+		afile[FILE_IDX_BOOKMARK] = MountCockpit.getInstance().getBookmark("MVC", path)
+		afile[FILE_IDX_RELPATH] = os.path.abspath(os.path.relpath(path, afile[FILE_IDX_BOOKMARK]))
+		afile[FILE_IDX_RELDIR] = os.path.dirname(afile[FILE_IDX_RELPATH])
+
 	def createDestinationDirs(self, src_path, dst_path):
 		logger.info("src_path: %s, dst_path: %s", src_path, dst_path)
 		while not self.exists(dst_path):
 			logger.info("creating missing dir: %s > %s", src_path, dst_path)
 			src_file = self.getFile("recordings", src_path)
 			dst_file = list(src_file)
-			dst_file[FILE_IDX_DIR] = os.path.dirname(dst_path)
-			dst_file[FILE_IDX_PATH] = dst_path
+			self.updateFilePaths(dst_path, dst_file)
 			self.add("recordings", dst_file)
 			src_path = os.path.dirname(src_path)
 			dst_path = os.path.dirname(dst_path)
@@ -161,28 +173,29 @@ class FileManagerCache(FileManagerLog, FileManagerCacheSQL):
 	def copyFile(self, src_path, dst_dir):
 		logger.debug("src_path: %s, dst_dir: %s", src_path, dst_dir)
 		src_file = self.getFile("recordings", src_path)
-		dst_path = os.path.join(dst_dir, os.path.basename(src_path))
-		dst_file = self.getFile("recordings", dst_path)
-		if dst_file is None:
-			dst_file = list(src_file)
-			dst_file[FILE_IDX_DIR] = dst_dir
-			dst_file[FILE_IDX_PATH] = dst_path
-			logger.debug("creating: %s", dst_file)
-			self.add("recordings", dst_file)
-			self.createDestinationDirs(os.path.dirname(src_path), dst_dir)
+		if src_file:
+			dst_path = os.path.join(dst_dir, os.path.basename(src_path))
+			dst_file = self.getFile("recordings", dst_path)
+			if dst_file is None:
+				dst_file = list(src_file)
+				self.updateFilePaths(dst_path, dst_file)
+				self.add("recordings", dst_file)
+				self.createDestinationDirs(os.path.dirname(src_path), dst_dir)
+			else:
+				logger.debug("dst_path: %s already exists.", dst_path)
 		else:
-			logger.debug("file already exists at destination: %s", dst_path)
+			logger.debug("src_path: %s does not exist.", src_path)
 
 	def copy(self, src_path, dst_path):
 		logger.debug("src_path: %s, dst_dir: %s", src_path, dst_path)
 		afile = self.getFile("recordings", src_path)
 		logger.debug("%s > %s", src_path, dst_path)
 		self.copyFile(src_path, dst_path)
-		if afile[FILE_IDX_TYPE] == FILE_TYPE_DIR:
+		if afile and afile[FILE_IDX_TYPE] == FILE_TYPE_DIR:
 			file_list = self.sqlSelect("recordings", "path LIKE ?", [src_path + "/%"])
 			for bfile in file_list:
 				src_path2 = bfile[FILE_IDX_PATH]
-				dst_path2 = os.path.join(dst_path, os.path.relpath(src_path2, os.path.dirname(src_path)))
+				dst_path2 = os.path.abspath(os.path.join(dst_path, os.path.relpath(src_path2, os.path.dirname(src_path))))
 				logger.debug("%s > %s", src_path2, os.path.dirname(dst_path2))
 				self.copyFile(src_path2, os.path.dirname(dst_path2))
 
@@ -205,37 +218,42 @@ class FileManagerCache(FileManagerLog, FileManagerCacheSQL):
 
 	# database list functions
 
-	def getFileList(self, dirs, recursively=False):
-		logger.debug("dirs: %s", dirs)
+	def getFileList(self, adir, recursive=False):
+		logger.debug("adir: %s", adir)
 		file_list = []
-		if not dirs:
-			dirs = self.bookmarks
-		for adir in dirs:
-			recursive = "%" if recursively else ""
-			where = "directory LIKE ?"
-			if "trashcan" not in adir:
-				where += " AND directory NOT LIKE '%trashcan%'"
+		afile = self.getFile("recordings", adir)
+		if afile:
+			rel_dir = afile[FILE_IDX_RELPATH]
+			logger.debug("rel_dir: %s", rel_dir)
+			wildcard = "%" if recursive else ""
+			where = "rel_dir LIKE ?"
+			if "trashcan" not in rel_dir:
+				where += " AND rel_dir NOT LIKE '%trashcan%'"
 			where += " AND file_type = ?"
-			file_list += self.sqlSelect("recordings", where, [adir + recursive, FILE_TYPE_FILE])
+			file_list = self.sqlSelect("recordings", where, [rel_dir + wildcard, FILE_TYPE_FILE])
 		return file_list
 
-	def getDirList(self, dirs, recursively=False, distinct=True):
-		logger.debug("dirs: %s", dirs)
-		file_types = [FILE_TYPE_DIR, FILE_TYPE_LINK]
-		types = ",".join("?" * len(file_types))
+	def getDirList(self, adir, recursive=False, distinct=True):
+		logger.debug("adir: %s", adir)
 		dir_list = []
-		if not dirs:
-			dirs = self.bookmarks
-		for adir in dirs:
-			recursive = "%" if recursively else ""
-			where = "file_name != 'trashcan'"
-			where += " AND directory LIKE ?"
-			if "trashcan" not in adir:
-				where += " AND directory NOT LIKE '%trashcan%'"
+		afile = self.getFile("recordings", adir)
+		if afile:
+			rel_dir = afile[FILE_IDX_RELPATH]
+			logger.debug("rel_dir: %s", rel_dir)
+			file_types = [FILE_TYPE_DIR, FILE_TYPE_LINK]
+			types = ",".join("?" * len(file_types))
+			wildcard = ""
+			if recursive:
+				wildcard = "%" if rel_dir.endswith("/") else "/%"
+			where = "path != bookmark"
+			where += " AND file_name != 'trashcan'"
+			where += " AND rel_dir LIKE ?"
+			if "trashcan" not in rel_dir:
+				where += " AND rel_dir NOT LIKE '%trashcan%'"
 			where += " AND file_type IN ({})".format(types)
-			dir_list += self.sqlSelect("recordings", where, [adir + recursive] + file_types)
-		if distinct:
-			dir_list = self.createDistinctDirList(dir_list)
+			dir_list = self.sqlSelect("recordings", where, [rel_dir + wildcard] + file_types)
+			if distinct:
+				dir_list = self.createDistinctDirList(dir_list)
 		return dir_list
 
 	def createDistinctDirList(self, alist):
@@ -249,35 +267,55 @@ class FileManagerCache(FileManagerLog, FileManagerCacheSQL):
 		logger.debug("dir_list: %s", dir_list)
 		return dir_list
 
-	def getDirNamesList(self, dirs):
+	def getDirNamesList(self, adir):
+		logger.info("adir: %s", adir)
 		file_types = [FILE_TYPE_DIR, FILE_TYPE_LINK]
 		types_bindings = ",".join("?" * len(file_types))
-		dirs_bindings = ",".join("?" * len(dirs))
-		if not dirs:
-			dirs = self.bookmarks
+		afile = self.getFile("recordings", adir)
+		rel_path = afile[FILE_IDX_RELPATH]
 		where = "file_name != 'trashcan'"
-		where += " AND directory IN ({})".format(dirs_bindings)
+		where += " AND rel_dir = ?"
 		where += " AND file_type IN ({})".format(types_bindings)
-		alist = self.sqlSelectDistinct("recordings", "file_name", where, dirs + file_types)
+		alist = self.sqlSelectDistinct("recordings", "file_name", where, [rel_path] + file_types)
 		dir_names_list = [item[0] for item in alist]
+		logger.debug("dir_names_list: %s", dir_names_list)
 		return dir_names_list
 
 	def getCountSize(self, path):
 		logger.info("path: %s", path)
 		total_count = total_size = 0
-		afile = self.getFile("recordings", path)
-		if afile and afile[FILE_IDX_TYPE] == FILE_TYPE_FILE:
-			total_size = afile[FILE_IDX_SIZE]
-		else:
-			if not os.path.basename(path) == "..":
-				all_dirs = MountCockpit.getInstance().getVirtualDirs("MVC", [path])
-				for adir in all_dirs:
-					file_list = self.sqlSelect("recordings", "path LIKE ? AND file_type = ?", [adir + "/%", FILE_TYPE_FILE])
-					for afile in file_list:
-						total_count += 1
-						total_size += afile[FILE_IDX_SIZE]
+		if not os.path.basename(path) == "..":
+			afile = self.getFile("recordings", path)
+			if afile:
+				rel_path = afile[FILE_IDX_RELPATH]
+				logger.debug("rel_path: %s", rel_path)
+				file_list = self.sqlSelect("recordings", "rel_path LIKE ? AND file_type = ?", [rel_path + "%", FILE_TYPE_FILE])
+				for afile in file_list:
+					total_count += 1
+					total_size += afile[FILE_IDX_SIZE]
 		logger.debug("path: %s, total_count: %s, total_size: %s", path, total_count, total_size)
 		return total_count, total_size
+
+	def getSortMode(self, adir):
+		logger.info("adir: %s", adir)
+		sort = ""
+		timestamp = 0
+		afile = self.getFile("recordings", adir)
+		if afile:
+			rel_path = afile[FILE_IDX_RELPATH]
+			where = "rel_path = ?"
+			where += " AND file_type = ?"
+			alist = self.sqlSelect("recordings", where, [rel_path, FILE_TYPE_DIR])
+			for afile in alist:
+				data = afile[FILE_IDX_SORT].split(",")
+				if len(data) > 1 and int(data[0]) > timestamp:
+					sort = data[1]
+					timestamp = int(data[0])
+		if not sort:
+			logger.debug("using default sort")
+			sort = config.plugins.moviecockpit.list_sort.value
+		logger.debug("sort: %s", sort)
+		return sort
 
 	# database functions
 
@@ -376,12 +414,15 @@ class FileManagerCache(FileManagerLog, FileManagerCacheSQL):
 			if os.path.exists(sort_path):
 				sort = readFile(sort_path).strip("\n")
 		afile = self.sqlInitFile()
-		afile[FILE_IDX_PATH] = path
-		afile[FILE_IDX_LENGTH] = -1
-		afile[FILE_IDX_DIR] = os.path.dirname(path)
-		afile[FILE_IDX_FILENAME] = os.path.basename(path)
 		afile[FILE_IDX_TYPE] = file_type
+		afile[FILE_IDX_BOOKMARK] = MountCockpit.getInstance().getBookmark("MVC", path)
+		afile[FILE_IDX_PATH] = path
+		afile[FILE_IDX_RELPATH] = os.path.abspath(os.path.relpath(path, afile[FILE_IDX_BOOKMARK]))
+		afile[FILE_IDX_DIR] = os.path.dirname(path)
+		afile[FILE_IDX_RELDIR] = os.path.dirname(afile[FILE_IDX_RELPATH])
+		afile[FILE_IDX_FILENAME] = os.path.basename(path)
 		afile[FILE_IDX_NAME] = afile[FILE_IDX_FILENAME]
+		afile[FILE_IDX_LENGTH] = -1
 		afile[FILE_IDX_SORT] = sort
 		afile[FILE_IDX_HOSTNAME] = self.host_name
 		# logger.debug("afile: %s", afile)
@@ -499,11 +540,14 @@ class FileManagerCache(FileManagerLog, FileManagerCacheSQL):
 		logger.debug("path: %s, name: %s, event_start_time %s, length: %s, cuts: %s", path, name, datetime.fromtimestamp(event_start_time), length, cuts)
 
 		afile = self.sqlInitFile()
+		afile[FILE_IDX_TYPE] = FILE_TYPE_FILE
+		afile[FILE_IDX_BOOKMARK] = MountCockpit.getInstance().getBookmark("MVC", path)
 		afile[FILE_IDX_PATH] = path
+		afile[FILE_IDX_RELPATH] = os.path.abspath(os.path.relpath(path, afile[FILE_IDX_BOOKMARK]))
 		afile[FILE_IDX_DIR] = file_dir
+		afile[FILE_IDX_RELDIR] = os.path.dirname(afile[FILE_IDX_RELPATH])
 		afile[FILE_IDX_FILENAME] = file_name
 		afile[FILE_IDX_EXT] = ext
-		afile[FILE_IDX_TYPE] = FILE_TYPE_FILE
 		afile[FILE_IDX_NAME] = name
 		afile[FILE_IDX_EVENT_START_TIME] = event_start_time
 		afile[FILE_IDX_RECORDING_START_TIME] = recording_start_time

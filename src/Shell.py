@@ -35,7 +35,7 @@ class Shell():
 		self.container2 = eConsoleAppContainer()
 		self.container2_appClosed_conn = self.container2.appClosed.connect(self.finished2)
 
-	def execFileOpCallback(self, *__):
+	def execDiskOpCallback(self, *__):
 		logger.error("should be overridden in child class")
 
 	def execShell(self, scripts, wait_for_completion, *args):
@@ -49,9 +49,9 @@ class Shell():
 		if scripts[0]:
 			self.container1.execute("sh -c " + quote(script1))
 			if not wait_for_completion:
-				DelayTimer(10, self.execFileOpCallback, *args)
+				DelayTimer(10, self.execDiskOpCallback, *args)
 		else:
-			DelayTimer(10, self.execFileOpCallback, *args)
+			DelayTimer(10, self.execDiskOpCallback, *args)
 
 	def finished1(self, retval=None):
 		logger.info("retval = %s, __abort: %s", retval, self.__abort)
@@ -61,7 +61,7 @@ class Shell():
 			self.container2.execute("sh -c " + quote(self.script3))
 		elif self.__abort:
 			file_op, path, target_dir, _error = self.args  # pylint: disable=W0632
-			self.execFileOpCallback(file_op, path, target_dir, FILE_OP_ERROR_ABORT)
+			self.execDiskOpCallback(file_op, path, target_dir, FILE_OP_ERROR_ABORT)
 		else:
 			self.finished2()
 
@@ -69,12 +69,14 @@ class Shell():
 		logger.info("retval = %s, __abort: %s", retval, self.__abort)
 		if self.__abort:
 			file_op, path, target_dir, _error = self.args  # pylint: disable=W0632
-			self.execFileOpCallback(file_op, path, target_dir, FILE_OP_ERROR_ABORT)
+			self.execDiskOpCallback(file_op, path, target_dir, FILE_OP_ERROR_ABORT)
 		elif self.wait_for_completion:
-			self.execFileOpCallback(*self.args)
+			self.execDiskOpCallback(*self.args)
 
 	def abortFileOp(self):
 		logger.info("...")
 		self.__abort = True
 		if self.container1 is not None and self.container1.running():
 			self.container1.sendCtrlC()
+		else:
+			logger.error("aborting before container has started execution...")

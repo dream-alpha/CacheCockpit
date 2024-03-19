@@ -23,19 +23,23 @@ import os
 from Components.Task import Task
 from enigma import eTimer
 from .Debug import logger
-from .FileCache import FileCache
 from .FileManagerUtils import FILE_OP_ERROR_NONE, FILE_OP_ERROR_ABORT, FILE_TASK, file_op_msg
+from .FileManagerUtils import FILE_OP_DELETE, FILE_OP_FSTRIM
+from .FileManagerCache import FileManagerCache
+from .FileManagerDisk import FileManagerDisk
+from .DelayTimer import DelayTimer
 
 
 ACTIVITY_TIMER_DELAY = 1000
 
 
-class FileManagerTask(Task, FileCache):
+class FileManagerTask(Task, FileManagerDisk, FileManagerCache):
 
 	def __init__(self, job, file_op, file_type, path, target_dir, job_callback, file_op_callback):
 		logger.info("file_op = %s, path = %s, target_dir = %s", file_op, path, target_dir)
 		Task.__init__(self, job, FILE_TASK + ": " + file_op_msg[file_op])
-		FileCache.__init__(self)
+		FileManagerCache.__init__(self)
+		FileManagerDisk.__init__(self)
 		self.job = job
 		self.file_op = file_op
 		self.file_type = file_type
@@ -58,12 +62,19 @@ class FileManagerTask(Task, FileCache):
 		self.activity_timer.start(ACTIVITY_TIMER_DELAY)
 		self.source_size = 0
 		if os.path.exists(self.path):
-			self.source_size = os.path.getsize(self.path)
-		self.updateProgress()
-		self.execCacheOp(self.file_op, self.file_type, self.path, self.target_dir)
+			if self.file_op != FILE_OP_FSTRIM:
+				self.source_size = os.path.getsize(self.path)
+				self.updateProgress()
+				self.execDiskOp(self.file_op, self.file_type, self.path, self.target_dir)
+		else:
+			if self.file_op == FILE_OP_DELETE:
+				DelayTimer(50, self.execDiskOpCallback, self.file_op, self.path, self.target_dir, FILE_OP_ERROR_NONE)
+			elif self.file_op == FILE_OP_FSTRIM:
+				self.execDiskOp(self.file_op, self.file_type, self.path, self.target_dir)
 
-	def execCacheOpCallback(self, _file_op, _path, _target_dir, _error):
-		logger.info("...")
+	def execDiskOpCallback(self, file_op, path, target_dir, error):
+		if not error:
+			self.execCacheOp(file_op, path, target_dir)
 		self.activity_timer.stop()
 		self.finish()
 
