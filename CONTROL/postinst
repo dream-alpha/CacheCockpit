@@ -1,0 +1,14 @@
+#!/bin/sh
+
+chmod +x /usr/script/CacheCockpit/*.sh
+
+echo "***********************************"
+echo "*          CacheCockpit           *"
+echo "*               by                *"
+echo "*          dream-alpha            *"
+echo "***********************************"
+echo ""
+echo "CacheCockpit plugin installed successfully."
+echo "Please restart DreamOS now!"
+echo ""
+exit 0
